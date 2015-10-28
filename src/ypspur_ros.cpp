@@ -14,6 +14,8 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+#include <future>
+#include <chrono>
 
 namespace YP
 {
@@ -143,45 +145,76 @@ public:
 		pubs["ad"] = nh.advertise<std_msgs::Float32MultiArray>("ad", 1);
 		
 		pid = 0;
-		if(YP::YPSpur_initex(key) < 0)
+		for(int i = 0; i < 2; i ++)
 		{
-			pid = fork();
-			if(pid == 0)
+			if(i > 0 || YP::YPSpur_initex(key) < 0)
 			{
-				setsid();
-				std::vector<std::string> args;
-				args.push_back(ypspur_bin);
-				args.push_back(std::string("-d"));
-				args.push_back(port);
-				args.push_back(std::string("--admask"));
-				args.push_back(ad_mask);
-				args.push_back(std::string("--msq-key"));
-				args.push_back(std::to_string(key));
-				if(digital_input_enable) 
-					args.push_back(std::string("--enable-get-digital-io"));
-				if(simulate) 
-					args.push_back(std::string("--without-device"));
-				if(param_file.size() > 0)
+				ROS_WARN("launching ypspur-coordinator");
+				pid = fork();
+				if(pid == 0)
 				{
-					args.push_back(std::string("-p"));
-					args.push_back(param_file);
+					setsid();
+					std::vector<std::string> args;
+					args.push_back(ypspur_bin);
+					args.push_back(std::string("-d"));
+					args.push_back(port);
+					args.push_back(std::string("--admask"));
+					args.push_back(ad_mask);
+					args.push_back(std::string("--msq-key"));
+					args.push_back(std::to_string(key));
+					if(digital_input_enable) 
+						args.push_back(std::string("--enable-get-digital-io"));
+					if(simulate) 
+						args.push_back(std::string("--without-device"));
+					if(param_file.size() > 0)
+					{
+						args.push_back(std::string("-p"));
+						args.push_back(param_file);
+					}
+
+					const char **argv = new const char * [args.size() + 1];
+					for(unsigned int i = 0; i < args.size(); i ++) argv[i] = args[i].c_str();
+					argv[args.size()] = nullptr;
+
+					execv(ypspur_bin.c_str(), (char**)argv);
+					ROS_ERROR("failed to start ypspur-coordinator");
+					throw(std::string("failed to start ypspur-coordinator"));
 				}
-
-				const char **argv = new const char * [args.size() + 1];
-				for(int i = 0; i < args.size(); i ++) argv[i] = args[i].c_str();
-				argv[args.size()] = nullptr;
-
-				execv(ypspur_bin.c_str(), (char**)argv);
-				ROS_ERROR("failed to start ypspur-coordinator");
-				throw(std::string("failed to start ypspur-coordinator"));
+				sleep(2);
+				if(YP::YPSpur_initex(key) < 0)
+				{
+					ROS_ERROR( "failed to init libypspur" );
+					throw(std::string("failed to init libypspur"));
+				}
 			}
-			sleep(2);
-			if(YP::YPSpur_initex(key) < 0)
+			double test_v, test_w;
+			double ret;
+			std::atomic<bool> done(false);
+			std::thread spur_test = 
+				std::thread([&]{
+							ret = YP::YPSpur_get_vel(&test_v, &test_w);
+							done = true;
+						});
+			std::chrono::milliseconds span(100);
+			std::this_thread::sleep_for(span);
+			if(!done)
 			{
-				ROS_ERROR( "failed to init libypspur" );
-				throw(std::string("failed to init libypspur"));
+				// There is no way to kill thread safely in C++11
+				// So, just leave it detached.
+				spur_test.detach();
+				ROS_WARN("ypspur-coordinator seems to be down - launching");
+				continue;
 			}
+			spur_test.join();
+			if(ret < 0)
+			{
+				ROS_WARN("ypspur-coordinator returns error - launching");
+				continue;
+			}
+			ROS_WARN("ypspur-coordinator launched");
+			break;
 		}
+
 		ROS_INFO("ypspur-coordinator conneceted");
 		signal(SIGINT, sigint_handler);
 
