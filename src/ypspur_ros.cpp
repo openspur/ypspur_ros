@@ -4,8 +4,9 @@
 #include <geometry_msgs/WrenchStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/JointState.h>
-#include <trajectory_msgs/JointTrajectoryPoint.h>
+#include <trajectory_msgs/JointTrajectory.h>
 #include <std_msgs/Float32MultiArray.h>
+#include <std_msgs/Float32.h>
 
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
@@ -51,8 +52,21 @@ private:
 	enum
 	{
 		DIFF,
-		JOINT
+		NONE
 	} mode;
+	class joint_params
+	{
+	public:
+		int id;
+		std::string name;
+		double accel;
+		double vel;
+		double angle_ref;
+		double vel_ref;
+	};
+	std::vector<joint_params> joints;
+	std::map<std::string, int> joint_name_to_id;
+	
 	class ad_params
 	{
 	public:
@@ -64,32 +78,61 @@ private:
 	std::vector<ad_params> ads;
 	const int ad_num = 8;
 
+	trajectory_msgs::JointTrajectory cmd_joint;
+
 	void cbCmdVel(const geometry_msgs::Twist::ConstPtr& msg)
 	{
 		YP::YPSpur_vel(msg->linear.x, msg->angular.z);
 	}
-	void cbJoint(const trajectory_msgs::JointTrajectoryPoint::ConstPtr& msg)
+	void cbJoint(const trajectory_msgs::JointTrajectory::ConstPtr& msg)
 	{
-		if(msg->positions.size() == 2 && 
-				msg->velocities.size() == 2 &&
-				msg->accelerations.size() == 2)
+		cmd_joint = *msg;
+		for(auto &cmd: cmd_joint.points)
 		{
-			YP::YP_set_wheel_vel(msg->velocities[0], msg->velocities[1]);
-			YP::YP_set_wheel_accel(msg->accelerations[0], msg->accelerations[1]);
-			YP::YP_wheel_ang(msg->positions[0], msg->positions[1]);
+			if(cmd.velocities.size() < cmd_joint.points.size())
+				cmd.velocities.resize(cmd_joint.points.size());
+			if(cmd.accelerations.size() < cmd_joint.points.size())
+				cmd.accelerations.resize(cmd_joint.points.size());
 		}
-		else if(msg->positions.size() == 1 && 
-				msg->velocities.size() == 1 &&
-				msg->accelerations.size() == 1)
-		{
-			YP::YP_set_wheel_vel(msg->velocities[0], 0.0);
-			YP::YP_set_wheel_accel(msg->accelerations[0], 0.0);
-			YP::YP_wheel_ang(msg->positions[0], 0.0);
-		}
-		else
-		{
-			ROS_ERROR("Joint number mismatch");
-		}
+	}
+	void cbSetVel(const std_msgs::Float32::ConstPtr& msg, int id)
+	{
+		joints[id].vel = msg->data;
+		printf("set_vel %d %d %f\n", id, joints[id].id, msg->data);
+#if !(YPSPUR_JOINT_SUPPORT)
+		YP::YP_set_wheel_vel(joints[0].vel, joints[1].vel);
+#else
+		YP::YP_set_joint_vel(joints[id].id, joints[id].vel);
+#endif
+	}
+	void cbSetAccel(const std_msgs::Float32::ConstPtr& msg, int id)
+	{
+		joints[id].accel = msg->data;
+		printf("set_accel %d %d %f\n", id, joints[id].id, msg->data);
+#if !(YPSPUR_JOINT_SUPPORT)
+		YP::YP_set_wheel_accel(joints[0].accel, joints[1].accel);
+#else
+		YP::YP_set_joint_accel(joints[id].id, joints[id].accel);
+#endif
+	}
+	void cbVel(const std_msgs::Float32::ConstPtr& msg, int id)
+	{
+		joints[id].vel_ref = msg->data;
+		printf("vel %d %d %f\n", id, joints[id].id, msg->data);
+#if !(YPSPUR_JOINT_SUPPORT)
+		YP::YP_wheel_vel(joints[0].vel_ref, joints[1].vel_ref);
+#else
+		YP::YP_joint_vel(joints[id].id, joints[id].vel_ref);
+#endif
+	}
+	void cbAngle(const std_msgs::Float32::ConstPtr& msg, int id)
+	{
+		joints[id].angle_ref = msg->data;
+#if !(YPSPUR_JOINT_SUPPORT)
+		YP::YP_wheel_ang(joints[0].angle_ref, joints[1].angle_ref);
+#else
+		YP::YP_joint_ang(joints[id].id, joints[id].angle_ref);
+#endif
 	}
 
 public:
@@ -114,7 +157,6 @@ public:
 		nh.param("odom_id", frames["odom"], std::string("odom"));
 		nh.param("base_link_id", frames["base_link"], std::string("base_link"));
 		nh.param("origin_id", frames["origin"], std::string(""));
-		nh.param("joint_id_base", frames["joint"], std::string("joint"));
 		nh.param("vel", params["vel"], 0.2);
 		nh.param("angvel", params["angvel"], 0.4);
 		nh.param("acc", params["acc"], 0.4);
@@ -122,7 +164,7 @@ public:
 		nh.param("hz", params["hz"], 200.0);
 
 		std::string mode_name;
-		nh.param("mode", mode_name, std::string("diff"));
+		nh.param("odometry_mode", mode_name, std::string("diff"));
 		if(mode_name.compare("diff") == 0)
 		{
 			mode = DIFF;
@@ -130,16 +172,63 @@ public:
 			pubs["odom"] = nh.advertise<nav_msgs::Odometry>("odom", 1);
 			subs["cmd_vel"] = nh.subscribe("cmd_vel", 1, &ypspur_ros::cbCmdVel, this);
 		}
-		else if(mode_name.compare("joint") == 0)
+		else if(mode_name.compare("none") == 0)
 		{
-			mode = JOINT;
-			pubs["joint"] = nh.advertise<sensor_msgs::JointState>("joint", 1);
-			subs["joint"] = nh.subscribe("cmd_joint", 1, &ypspur_ros::cbJoint, this);
 		}
 		else
 		{
 			ROS_ERROR("unknown mode '%s'", mode_name.c_str());
 			throw(std::string("unknown mode '") + mode_name + std::string("'"));
+		}
+
+		int max_joint_id;
+		nh.param("max_joint_id", max_joint_id, 32);
+		int num = 0;
+		for(int i = 0; i < max_joint_id; i ++)
+		{
+			std::string name;
+			name = std::string("joint") + std::to_string(i);
+			if(nh.hasParam(name + std::string("_enable")))
+			{
+				bool en;
+				nh.param(name + std::string("_enable"), en, false);
+				if(en)
+				{
+					joint_params jp;
+					jp.id = i;
+					nh.param(name + std::string("_name"), jp.name, name);
+					nh.param(name + std::string("_accel"), jp.accel, 3.14);
+					joints.push_back(jp);
+					subs[name + std::string("_setVel")] = 
+						nh.subscribe<std_msgs::Float32>(name + std::string("_setVel"), 1, 
+								boost::bind(&ypspur_ros::cbSetVel, this, _1, num));
+					subs[name + std::string("_setAccel")] = 
+						nh.subscribe<std_msgs::Float32>(name + std::string("_setAccel"), 1, 
+								boost::bind(&ypspur_ros::cbSetAccel, this, _1, num));
+					subs[name + std::string("_vel")] = 
+						nh.subscribe<std_msgs::Float32>(name + std::string("_vel"), 1, 
+								boost::bind(&ypspur_ros::cbVel, this, _1, num));
+					subs[name + std::string("_pos")] = 
+						nh.subscribe<std_msgs::Float32>(name + std::string("_pos"), 1, 
+								boost::bind(&ypspur_ros::cbAngle, this, _1, num));
+					num ++;
+				}
+			}
+		}
+#if !(YPSPUR_JOINT_SUPPORT)
+		if(joints.size() != 0)
+		{
+			if(!(joints.size() == 2 && joints[0].id == 0 && joints[1].id == 1))
+			{
+				ROS_ERROR("This version of yp-spur only supports [joint0_enable: true, joint1_enable: true]");
+				throw(std::string("joint configuration error"));
+			}
+		}
+#endif
+		if(joints.size() > 0)
+		{
+			pubs["joint"] = nh.advertise<sensor_msgs::JointState>("joint", 1);
+			subs["joint"] = nh.subscribe("cmd_joint", 1, &ypspur_ros::cbJoint, this);
 		}
 
 		pubs["ad"] = nh.advertise<std_msgs::Float32MultiArray>("ad", 1);
@@ -238,19 +327,22 @@ public:
 		odom.child_frame_id = frames["base_link"];
 		wrench.header.frame_id = frames["base_link"];
 
-		geometry_msgs::TransformStamped joint_trans[2];
+		std::map<int, geometry_msgs::TransformStamped> joint_trans;
 		sensor_msgs::JointState joint;
-		joint.header.frame_id = std::string("");
-		joint.name.resize(2);
-		joint.velocity.resize(2);
-		joint.position.resize(2);
-		joint.effort.resize(2);
-		joint.name[0] = frames["joint"] + std::string("0");
-		joint.name[1] = frames["joint"] + std::string("1");
-		joint_trans[0].header.frame_id = frames["joint"] + std::string("0_in");
-		joint_trans[0].child_frame_id = frames["joint"] + std::string("0_out");
-		joint_trans[1].header.frame_id = frames["joint"] + std::string("1_in");
-		joint_trans[1].child_frame_id = frames["joint"] + std::string("1_out");
+		if(joints.size() > 0)
+		{
+			joint.header.frame_id = std::string("");
+			joint.velocity.resize(joints.size());
+			joint.position.resize(joints.size());
+			joint.effort.resize(joints.size());
+			for(auto &j: joints) joint.name.push_back(j.name);
+
+			for(unsigned int i = 0; i < joints.size(); i ++)
+			{
+				joint_trans[i].header.frame_id = joints[i].name + std::string("_in");
+				joint_trans[i].child_frame_id = joints[i].name + std::string("_out");
+			}
+		}
 
 		std_msgs::Float32MultiArray ad;
 		ad.layout.dim.resize(1);
@@ -263,13 +355,14 @@ public:
 		while(!g_shutdown)
 		{
 			double t;
+			auto now = ros::Time::now();
 
 			if(mode == DIFF)
 			{
 				double x, y, yaw, v, w;
 
 				t = YP::YPSpur_get_pos(YP::CS_BS, &x, &y, &yaw);
-				if(t == 0.0) t = ros::Time::now().toSec();
+				if(t == 0.0) t = now.toSec();
 				YP::YPSpur_get_vel(&v, &w);
 
 				odom.header.stamp = ros::Time(t);
@@ -290,7 +383,7 @@ public:
 				tf_broadcaster.sendTransform(odom_trans);
 
 				t = YP::YPSpur_get_force(&wrench.wrench.force.x, &wrench.wrench.torque.z);
-				if(t == 0.0) t = ros::Time::now().toSec();
+				if(t == 0.0) t = now.toSec();
 				wrench.header.stamp = ros::Time(t);
 				wrench.wrench.force.y = 0;
 				wrench.wrench.force.z = 0;
@@ -318,24 +411,56 @@ public:
 					}
 				}
 			}
-			if(mode == JOINT)
+			if(joints.size() > 0)
 			{
-				t = YP::YP_get_wheel_ang(&joint.position[0], &joint.position[1]);
+#if !(YPSPUR_JOINT_SUPPORT)
+				double js[2];
+				int i;
+				t = YP::YP_get_wheel_ang(&js[0], &js[1]);
+				i = 0;
+				for(auto &j: joints) joint.position[i++] = js[j.id];
+				YP::YP_get_wheel_vel(&js[0], &js[1]);
+				i = 0;
+				for(auto &j: joints) joint.velocity[i++] = js[j.id];
+				YP::YP_get_wheel_torque(&js[0], &js[1]);
+				i = 0;
+				for(auto &j: joints) joint.velocity[i++] = js[j.id];
 				if(t == 0.0) t = ros::Time::now().toSec();
-				YP::YP_get_wheel_vel(&joint.velocity[0], &joint.velocity[1]);
-				YP::YP_get_wheel_torque(&joint.effort[0], &joint.effort[1]);
 				joint.header.stamp = ros::Time(t);
+#else
+				int i = 0;
+				for(auto &j: joints)
+				{
+					t = YP::YP_get_joint_ang(j.id, &joint.position[i]);
+					YP::YP_get_joint_vel(j.id, &joint.velocity[i]);
+					//YP::YP_get_joint_torque(j.id, &joint.effort[i]);
+					i ++;
+				}
+#endif
 				pubs["joint"].publish(joint);
 
-				joint_trans[0].transform.rotation =
-				   	tf::createQuaternionMsgFromYaw(joint.position[0]);
-				joint_trans[0].header.stamp = ros::Time(t);
-				tf_broadcaster.sendTransform(joint_trans[0]);
+				for(unsigned int i = 0; i < joints.size(); i ++)
+				{
+					joint_trans[i].transform.rotation =
+						tf::createQuaternionMsgFromYaw(joint.position[i]);
+					joint_trans[i].header.stamp = ros::Time(t);
+					tf_broadcaster.sendTransform(joint_trans[i]);
+				}
 
-				joint_trans[1].transform.rotation =
-				   	tf::createQuaternionMsgFromYaw(joint.position[1]);
-				joint_trans[1].header.stamp = ros::Time(t);
-				tf_broadcaster.sendTransform(joint_trans[1]);
+				for(auto &cmd: cmd_joint.points)
+				{
+					auto t = now - cmd_joint.header.stamp;
+					if(cmd.time_from_start < t) continue;
+
+					for(unsigned int i = 0; i < cmd.positions.size(); i ++)
+					{
+						int jid = joint_name_to_id[cmd_joint.joint_names[i]];
+						double ang_err = joint.position[jid] - cmd.positions[i];
+						/* Control here */
+						ROS_ERROR("Joint trajectory control is not supported yet");
+					}
+					break;
+				}
 			}
 
 			ad.data.clear();
