@@ -148,9 +148,12 @@ public:
 		ads.resize(ad_num);
 		for(int i = 0; i < ad_num; i ++)
 		{
-			nh.param(std::string("ad_enable") + std::to_string(i), ads[i].enable, false);
-			nh.param(std::string("ad_gain") + std::to_string(i), ads[i].gain, 1.0);
-			nh.param(std::string("ad_offset") + std::to_string(i), ads[i].offset, 0.0);
+			nh.param(std::string("ad") + std::to_string(i) + std::string("_enable"),
+				   	ads[i].enable, false);
+			nh.param(std::string("ad") + std::to_string(i) + std::string("_gain"),
+				   	ads[i].gain, 1.0);
+			nh.param(std::string("ad") + std::to_string(i) + std::string("_offset"),
+				   	ads[i].offset, 0.0);
 			ad_mask = (ads[i].enable ? std::string("1") : std::string("0")) + ad_mask;
 		}
 		nh.param(std::string("digital_input_enable"), digital_input_enable, false);
