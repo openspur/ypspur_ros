@@ -199,17 +199,17 @@ public:
 					nh.param(name + std::string("_name"), jp.name, name);
 					nh.param(name + std::string("_accel"), jp.accel, 3.14);
 					joints.push_back(jp);
-					subs[name + std::string("_setVel")] = 
-						nh.subscribe<std_msgs::Float32>(name + std::string("_setVel"), 1, 
+					subs[jp.name + std::string("_setVel")] = 
+						nh.subscribe<std_msgs::Float32>(jp.name + std::string("_setVel"), 1, 
 								boost::bind(&ypspur_ros::cbSetVel, this, _1, num));
-					subs[name + std::string("_setAccel")] = 
-						nh.subscribe<std_msgs::Float32>(name + std::string("_setAccel"), 1, 
+					subs[jp.name + std::string("_setAccel")] = 
+						nh.subscribe<std_msgs::Float32>(jp.name + std::string("_setAccel"), 1, 
 								boost::bind(&ypspur_ros::cbSetAccel, this, _1, num));
-					subs[name + std::string("_vel")] = 
-						nh.subscribe<std_msgs::Float32>(name + std::string("_vel"), 1, 
+					subs[jp.name + std::string("_vel")] = 
+						nh.subscribe<std_msgs::Float32>(jp.name + std::string("_vel"), 1, 
 								boost::bind(&ypspur_ros::cbVel, this, _1, num));
-					subs[name + std::string("_pos")] = 
-						nh.subscribe<std_msgs::Float32>(name + std::string("_pos"), 1, 
+					subs[jp.name + std::string("_pos")] = 
+						nh.subscribe<std_msgs::Float32>(jp.name + std::string("_pos"), 1, 
 								boost::bind(&ypspur_ros::cbAngle, this, _1, num));
 					num ++;
 				}
