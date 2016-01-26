@@ -73,6 +73,7 @@ private:
 	{
 	public:
 		bool enable;
+		std::string name;
 		double gain;
 		double offset;
 	};
@@ -215,6 +216,8 @@ public:
 		{
 			nh.param(std::string("ad") + std::to_string(i) + std::string("_enable"),
 				   	ads[i].enable, false);
+			nh.param(std::string("ad") + std::to_string(i) + std::string("_name"),
+				   	ads[i].name, std::string("ad") + std::to_string(i));
 			nh.param(std::string("ad") + std::to_string(i) + std::string("_gain"),
 				   	ads[i].gain, 1.0);
 			nh.param(std::string("ad") + std::to_string(i) + std::string("_offset"),
@@ -459,10 +462,18 @@ public:
 		}
 
 		std_msgs::Float32MultiArray ad;
-		ad.layout.dim.resize(1);
-		ad.layout.dim[0].label = std::string("channel");
-		ad.layout.dim[0].stride = 1;
 		ad.layout.data_offset = 0;
+		for(int i = 0; i < ad_num; i ++)
+		{
+			if(ads[i].enable)
+			{
+				std_msgs::MultiArrayDimension mad;
+				mad.label = ads[i].name;
+				mad.stride = 1;
+				mad.size = 1;
+				ad.layout.dim.push_back(mad);
+			}
+		}
 
 		ROS_INFO("ypspur_ros main loop started");
 		ros::Rate loop(params["hz"]);
@@ -578,7 +589,7 @@ public:
 			}
 
 			ad.data.clear();
-			for(int i = 0; i < 8; i ++)
+			for(int i = 0; i < ad_num; i ++)
 			{
 				if(ads[i].enable)
 				{
@@ -587,7 +598,6 @@ public:
 					ad.data.push_back(val);
 				}
 			}
-			ad.layout.dim[0].size = ad.data.size();
 			pubs["ad"].publish(ad);
 
 			for(int i = 0; i < dio_num; i ++)
