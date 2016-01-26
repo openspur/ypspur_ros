@@ -9,6 +9,7 @@
 #include <std_msgs/Float32.h>
 #include <std_msgs/Bool.h>
 #include <ypspur_ros/DigitalOutput.h>
+#include <ypspur_ros/JointPositionControl.h>
 
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
@@ -67,7 +68,7 @@ private:
 		double vel_ref;
 	};
 	std::vector<joint_params> joints;
-	std::map<std::string, int> joint_name_to_id;
+	std::map<std::string, int> joint_name_to_num;
 	
 	class ad_params
 	{
@@ -104,43 +105,72 @@ private:
 				cmd.accelerations.resize(cmd_joint.points.size());
 		}
 	}
-	void cbSetVel(const std_msgs::Float32::ConstPtr& msg, int id)
+	void cbSetVel(const std_msgs::Float32::ConstPtr& msg, int num)
 	{
-		joints[id].vel = msg->data;
-		printf("set_vel %d %d %f\n", id, joints[id].id, msg->data);
+		joints[num].vel = msg->data;
+		//printf("set_vel %d %d %f\n", num, joints[num].id, msg->data);
 #if !(YPSPUR_JOINT_SUPPORT)
 		YP::YP_set_wheel_vel(joints[0].vel, joints[1].vel);
 #else
-		YP::YP_set_joint_vel(joints[id].id, joints[id].vel);
+		YP::YP_set_joint_vel(joints[num].id, joints[num].vel);
 #endif
 	}
-	void cbSetAccel(const std_msgs::Float32::ConstPtr& msg, int id)
+	void cbSetAccel(const std_msgs::Float32::ConstPtr& msg, int num)
 	{
-		joints[id].accel = msg->data;
-		printf("set_accel %d %d %f\n", id, joints[id].id, msg->data);
+		joints[num].accel = msg->data;
+		//printf("set_accel %d %d %f\n", num, joints[num].id, msg->data);
 #if !(YPSPUR_JOINT_SUPPORT)
 		YP::YP_set_wheel_accel(joints[0].accel, joints[1].accel);
 #else
-		YP::YP_set_joint_accel(joints[id].id, joints[id].accel);
+		YP::YP_set_joint_accel(joints[num].id, joints[num].accel);
 #endif
 	}
-	void cbVel(const std_msgs::Float32::ConstPtr& msg, int id)
+	void cbVel(const std_msgs::Float32::ConstPtr& msg, int num)
 	{
-		joints[id].vel_ref = msg->data;
-		printf("vel %d %d %f\n", id, joints[id].id, msg->data);
+		joints[num].vel_ref = msg->data;
+		//printf("vel %d %d %f\n", num, joints[num].id, msg->data);
 #if !(YPSPUR_JOINT_SUPPORT)
 		YP::YP_wheel_vel(joints[0].vel_ref, joints[1].vel_ref);
 #else
-		YP::YP_joint_vel(joints[id].id, joints[id].vel_ref);
+		YP::YP_joint_vel(joints[num].id, joints[num].vel_ref);
 #endif
 	}
-	void cbAngle(const std_msgs::Float32::ConstPtr& msg, int id)
+	void cbAngle(const std_msgs::Float32::ConstPtr& msg, int num)
 	{
-		joints[id].angle_ref = msg->data;
+		joints[num].angle_ref = msg->data;
 #if !(YPSPUR_JOINT_SUPPORT)
 		YP::YP_wheel_ang(joints[0].angle_ref, joints[1].angle_ref);
 #else
-		YP::YP_joint_ang(joints[id].id, joints[id].angle_ref);
+		YP::YP_joint_ang(joints[num].id, joints[num].angle_ref);
+#endif
+	}
+	void cbJointPosition(const ypspur_ros::JointPositionControl::ConstPtr& msg)
+	{
+		int i = 0;
+		for(auto &name: msg->joint_names)
+		{
+			if(joint_name_to_num.find(name) == joint_name_to_num.end())
+			{
+				ROS_ERROR("Unknown joint name '%s'", name.c_str());
+				continue;
+			}
+			int num = joint_name_to_num[name];
+			joints[num].vel = msg->velocities[i];
+			joints[num].accel = msg->accelerations[i];
+			joints[num].angle_ref = msg->positions[i];
+
+			//printf("%s %d %d  %f", name.c_str(), num, joints[num].id, joints[num].angle_ref);
+#if (YPSPUR_JOINT_SUPPORT)
+			YP::YP_set_joint_vel(joints[num].id, joints[num].vel);
+			YP::YP_set_joint_accel(joints[num].id, joints[num].accel);
+			YP::YP_joint_ang(joints[num].id, joints[num].angle_ref);
+#endif
+			i++;
+		}
+#if !(YPSPUR_JOINT_SUPPORT)
+		YP::YP_set_wheel_vel(joints[0].vel, joints[1].vel);
+		YP::YP_set_wheel_accel(joints[0].accel, joints[1].accel);
+		YP::YP_wheel_ang(joints[0].angle_ref, joints[1].angle_ref);
 #endif
 	}
 
@@ -297,7 +327,9 @@ public:
 		}
 
 		int max_joint_id;
+		bool separated_joint;
 		nh.param("max_joint_id", max_joint_id, 32);
+		nh.param("separated_joint_control", separated_joint, false);
 		int num = 0;
 		for(int i = 0; i < max_joint_id; i ++)
 		{
@@ -313,19 +345,28 @@ public:
 					jp.id = i;
 					nh.param(name + std::string("_name"), jp.name, name);
 					nh.param(name + std::string("_accel"), jp.accel, 3.14);
+					joint_name_to_num[jp.name] = num;
 					joints.push_back(jp);
-					subs[jp.name + std::string("_setVel")] = 
-						nh.subscribe<std_msgs::Float32>(jp.name + std::string("_setVel"), 1, 
-								boost::bind(&ypspur_ros::cbSetVel, this, _1, num));
-					subs[jp.name + std::string("_setAccel")] = 
-						nh.subscribe<std_msgs::Float32>(jp.name + std::string("_setAccel"), 1, 
-								boost::bind(&ypspur_ros::cbSetAccel, this, _1, num));
-					subs[jp.name + std::string("_vel")] = 
-						nh.subscribe<std_msgs::Float32>(jp.name + std::string("_vel"), 1, 
-								boost::bind(&ypspur_ros::cbVel, this, _1, num));
-					subs[jp.name + std::string("_pos")] = 
-						nh.subscribe<std_msgs::Float32>(jp.name + std::string("_pos"), 1, 
-								boost::bind(&ypspur_ros::cbAngle, this, _1, num));
+					//printf("%s %d %d", jp.name.c_str(), jp.id, joint_name_to_num[jp.name]);
+					if(separated_joint)
+					{
+						subs[jp.name + std::string("_setVel")] = 
+							nh.subscribe<std_msgs::Float32>(jp.name + std::string("_setVel"), 1, 
+									boost::bind(&ypspur_ros_node::cbSetVel, this, _1, num));
+						subs[jp.name + std::string("_setAccel")] = 
+							nh.subscribe<std_msgs::Float32>(jp.name + std::string("_setAccel"), 1, 
+									boost::bind(&ypspur_ros_node::cbSetAccel, this, _1, num));
+						subs[jp.name + std::string("_vel")] = 
+							nh.subscribe<std_msgs::Float32>(jp.name + std::string("_vel"), 1, 
+									boost::bind(&ypspur_ros_node::cbVel, this, _1, num));
+						subs[jp.name + std::string("_pos")] = 
+							nh.subscribe<std_msgs::Float32>(jp.name + std::string("_pos"), 1, 
+									boost::bind(&ypspur_ros_node::cbAngle, this, _1, num));
+					}
+					subs[std::string("joint_position")] = 
+						nh.subscribe<ypspur_ros::JointPositionControl>(
+								std::string("joint_position"), 1, 
+								&ypspur_ros_node::cbJointPosition, this);
 					num ++;
 				}
 			}
@@ -479,12 +520,12 @@ public:
 		ros::Rate loop(params["hz"]);
 		while(!g_shutdown)
 		{
-			double t;
 			auto now = ros::Time::now();
 
 			if(mode == DIFF)
 			{
 				double x, y, yaw, v, w;
+				double t;
 
 				t = YP::YPSpur_get_pos(YP::CS_BS, &x, &y, &yaw);
 				if(t == 0.0) t = now.toSec();
@@ -538,6 +579,7 @@ public:
 			}
 			if(joints.size() > 0)
 			{
+				double t;
 #if !(YPSPUR_JOINT_SUPPORT)
 				double js[2];
 				int i;
@@ -551,9 +593,9 @@ public:
 				i = 0;
 				for(auto &j: joints) joint.velocity[i++] = js[j.id];
 				if(t == 0.0) t = ros::Time::now().toSec();
-				joint.header.stamp = ros::Time(t);
 #else
 				int i = 0;
+				t = ros::Time::now().toSec();
 				for(auto &j: joints)
 				{
 					t = YP::YP_get_joint_ang(j.id, &joint.position[i]);
@@ -562,6 +604,7 @@ public:
 					i ++;
 				}
 #endif
+				joint.header.stamp = ros::Time(t);
 				pubs["joint"].publish(joint);
 
 				for(unsigned int i = 0; i < joints.size(); i ++)
@@ -579,7 +622,7 @@ public:
 
 					for(unsigned int i = 0; i < cmd.positions.size(); i ++)
 					{
-						int jid = joint_name_to_id[cmd_joint.joint_names[i]];
+						int jid = joint_name_to_num[cmd_joint.joint_names[i]];
 						double ang_err = joint.position[jid] - cmd.positions[i];
 						/* Control here */
 						ROS_ERROR("Joint trajectory control is not supported yet");

@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
 	FILES
 	DigitalOutput.msg
+	JointPositionControl.msg
 )
 
 # add_service_files(
