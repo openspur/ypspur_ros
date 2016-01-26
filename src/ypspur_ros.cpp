@@ -7,6 +7,8 @@
 #include <trajectory_msgs/JointTrajectory.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/Float32.h>
+#include <std_msgs/Bool.h>
+#include <ypspur_ros/DigitalOutput.h>
 
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
@@ -30,7 +32,7 @@ void sigint_handler(int sig)
 	g_shutdown = true;
 }
 
-class ypspur_ros
+class ypspur_ros_node
 {
 private:
 	ros::NodeHandle nh;
@@ -77,6 +79,12 @@ private:
 	bool digital_input_enable;
 	std::vector<ad_params> ads;
 	const int ad_num = 8;
+	unsigned int dio_output;
+	unsigned int dio_dir;
+	unsigned int dio_output_default;
+	unsigned int dio_dir_default;
+	const int dio_num = 8;
+	std::map<int, ros::Time> dio_revert;
 
 	trajectory_msgs::JointTrajectory cmd_joint;
 
@@ -135,8 +143,65 @@ private:
 #endif
 	}
 
+	void cbDigitalOutput(const ypspur_ros::DigitalOutput::ConstPtr& msg, int id)
+	{
+		const auto dio_output_prev = dio_output;
+		const auto dio_dir_prev = dio_dir;
+		const unsigned int mask = 1 << id;
+
+		switch(msg->output)
+		{
+		case ypspur_ros::DigitalOutput::HIGH_IMPEDANCE:
+			dio_output &= ~mask;
+			dio_dir &= ~mask;
+			break;
+		case ypspur_ros::DigitalOutput::LOW:
+			dio_output &= ~mask;
+			dio_dir |= mask;
+			break;
+		case ypspur_ros::DigitalOutput::HIGH:
+			dio_output |= mask;
+			dio_dir |= mask;
+			break;
+		case ypspur_ros::DigitalOutput::PULL_UP:
+			dio_output |= mask;
+			dio_dir &= ~mask;
+			break;
+		case ypspur_ros::DigitalOutput::PULL_DOWN:
+			ROS_ERROR("Digital IO pull down is not supported on this system");
+			break;
+		}
+		if(dio_output != dio_output_prev)
+			YP::YP_set_io_data(dio_output);
+		if(dio_dir != dio_dir_prev)
+			YP::YP_set_io_dir(dio_dir);
+
+		if(msg->toggle_time <= ros::Duration(0))
+		{
+			dio_revert[id] = ros::Time::now() + msg->toggle_time;
+		}
+	}
+	void revertDigitalOutput(int id)
+	{
+		const auto dio_output_prev = dio_output;
+		const auto dio_dir_prev = dio_dir;
+		const unsigned int mask = 1 << id;
+
+		dio_output &= ~mask;
+		dio_output |= dio_output_default & mask;
+		dio_dir &= ~mask;
+		dio_dir |= dio_output_default & mask;
+
+		if(dio_output != dio_output_prev)
+			YP::YP_set_io_data(dio_output);
+		if(dio_dir != dio_dir_prev)
+			YP::YP_set_io_dir(dio_dir);
+
+		dio_revert[id] = ros::Time(0);
+	}
+
 public:
-	ypspur_ros():
+	ypspur_ros_node():
 		nh("~")
 	{
 		nh.param("port", port, std::string("/dev/ttyACM0"));
@@ -157,6 +222,50 @@ public:
 			ad_mask = (ads[i].enable ? std::string("1") : std::string("0")) + ad_mask;
 		}
 		nh.param(std::string("digital_input_enable"), digital_input_enable, false);
+		dio_output_default = 0;
+		dio_dir_default = 0;
+		for(int i = 0; i < dio_num; i ++)
+		{
+			bool output;
+			std::string name;
+			nh.param(std::string("dio") + std::to_string(i) + std::string("_enable"),
+				   	output, false);
+			if(output)
+			{
+				nh.param(std::string("dio") + std::to_string(i) + std::string("_name"),
+						name, std::string(std::string("dio") + std::to_string(i)));
+				subs[name] = 
+					nh.subscribe<ypspur_ros::DigitalOutput>(name, 1, 
+							boost::bind(&ypspur_ros_node::cbDigitalOutput, this, _1, i));
+
+				std::string output_default;
+				nh.param(std::string("dio") + std::to_string(i) + std::string("_default"),
+						output_default, std::string(std::string("dio") + std::to_string(i)));
+				if(output_default.compare("HIGH_IMPEDANCE"))
+				{
+				}
+				else if(output_default.compare("LOW"))
+				{
+					dio_dir_default |= 1 << i;
+				}
+				else if(output_default.compare("HIGH"))
+				{
+					dio_dir_default |= 1 << i;
+					dio_output_default |= 1 << i;
+				}
+				else if(output_default.compare("PULL_UP"))
+				{
+					dio_output_default |= 1 << i;
+				}
+				else if(output_default.compare("PULL_DOWN"))
+				{
+					ROS_ERROR("Digital IO pull down is not supported on this system");
+				}
+			}
+		}
+		dio_output = dio_output_default;
+		dio_dir = dio_dir_default;
+
 		nh.param("odom_id", frames["odom"], std::string("odom"));
 		nh.param("base_link_id", frames["base_link"], std::string("base_link"));
 		nh.param("origin_id", frames["origin"], std::string(""));
@@ -173,7 +282,7 @@ public:
 			mode = DIFF;
 			pubs["wrench"] = nh.advertise<geometry_msgs::WrenchStamped>("wrench", 1);
 			pubs["odom"] = nh.advertise<nav_msgs::Odometry>("odom", 1);
-			subs["cmd_vel"] = nh.subscribe("cmd_vel", 1, &ypspur_ros::cbCmdVel, this);
+			subs["cmd_vel"] = nh.subscribe("cmd_vel", 1, &ypspur_ros_node::cbCmdVel, this);
 		}
 		else if(mode_name.compare("none") == 0)
 		{
@@ -231,7 +340,7 @@ public:
 		if(joints.size() > 0)
 		{
 			pubs["joint"] = nh.advertise<sensor_msgs::JointState>("joint", 1);
-			subs["joint"] = nh.subscribe("cmd_joint", 1, &ypspur_ros::cbJoint, this);
+			subs["joint"] = nh.subscribe("cmd_joint", 1, &ypspur_ros_node::cbJoint, this);
 		}
 
 		pubs["ad"] = nh.advertise<std_msgs::Float32MultiArray>("ad", 1);
@@ -314,8 +423,10 @@ public:
 		YP::YPSpur_set_accel(params["acc"]);
 		YP::YPSpur_set_angvel(params["angvel"]);
 		YP::YPSpur_set_angaccel(params["angacc"]);
+		YP::YP_set_io_data(dio_output);
+		YP::YP_set_io_dir(dio_dir);
 	}
-	~ypspur_ros()
+	~ypspur_ros_node()
 	{
 	}
 	void spin()
@@ -479,6 +590,17 @@ public:
 			ad.layout.dim[0].size = ad.data.size();
 			pubs["ad"].publish(ad);
 
+			for(int i = 0; i < dio_num; i ++)
+			{
+				if(dio_revert[i] != ros::Time(0))
+				{
+					if(dio_revert[i] < now)
+					{
+						revertDigitalOutput(i);
+					}
+				}
+			}
+
 			if(YP::YP_get_error_state())
 			{
 				ROS_ERROR("ypspur-coordinator is not active");
@@ -503,7 +625,7 @@ int main(int argc, char *argv[])
 
 	try
 	{
-		ypspur_ros yr;
+		ypspur_ros_node yr;
 		yr.spin();
 	}
 	catch(std::string e)

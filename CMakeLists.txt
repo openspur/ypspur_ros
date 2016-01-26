@@ -9,15 +9,15 @@ find_package(catkin REQUIRED COMPONENTS
 	rospy
 	std_msgs
 	tf
+	message_generation
 )
 
 # find_package(Boost REQUIRED COMPONENTS system)
 
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+	FILES
+	DigitalOutput.msg
+)
 
 # add_service_files(
 #   FILES
@@ -25,10 +25,10 @@ find_package(catkin REQUIRED COMPONENTS
 #   Service2.srv
 # )
 
-# generate_messages(
-#   DEPENDENCIES
-#   geometry_msgs#   nav_msgs#   std_msgs
-# )
+generate_messages(
+	DEPENDENCIES
+	std_msgs
+)
 
 catkin_package(
 	CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs tf
@@ -66,6 +66,7 @@ target_link_libraries(ypspur_ros
 	${catkin_LIBRARIES}
 	ypspur
 )
+add_dependencies(ypspur_ros ypspur_ros_gencpp)
 
 #############
 ## Install ##
