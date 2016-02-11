@@ -69,6 +69,9 @@ target_link_libraries(ypspur_ros
 )
 add_dependencies(ypspur_ros ypspur_ros_gencpp)
 
+add_executable(joint_tf_publisher src/joint_tf_publisher.cpp)
+target_link_libraries(joint_tf_publisher ${catkin_LIBRARIES})
+
 #############
 ## Install ##
 #############
