@@ -51,6 +51,8 @@ private:
 	bool simulate;
 	bool simulate_control;
 
+	double tf_time_offset;
+
 	pid_t pid;
 
 	enum
@@ -258,6 +260,7 @@ public:
 		if(simulate_control) simulate = true;
 		nh.param("ypspur_bin", ypspur_bin, std::string("/usr/local/bin/ypspur-coordinator"));
 		nh.param("param_file", param_file, std::string(""));
+		nh.param("tf_time_offset", tf_time_offset, 0.0);
 		std::string ad_mask("");
 		ads.resize(ad_num);
 		for(int i = 0; i < ad_num; i ++)
@@ -568,7 +571,7 @@ public:
 				odom.twist.twist.angular.z = w;
 				pubs["odom"].publish(odom);
 
-				odom_trans.header.stamp = ros::Time(t);
+				odom_trans.header.stamp = ros::Time(t) + ros::Duration(tf_time_offset);
 				odom_trans.transform.translation.x = x;
 				odom_trans.transform.translation.y = y;
 				odom_trans.transform.translation.z = 0;
@@ -674,7 +677,7 @@ public:
 				{
 					joint_trans[i].transform.rotation =
 						tf::createQuaternionMsgFromYaw(joint.position[i]);
-					joint_trans[i].header.stamp = ros::Time(t);
+					joint_trans[i].header.stamp = ros::Time(t) + ros::Duration(tf_time_offset);
 					tf_broadcaster.sendTransform(joint_trans[i]);
 				}
 
