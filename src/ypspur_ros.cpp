@@ -49,6 +49,7 @@ private:
 	std::map<std::string, double> params;
 	int key;
 	bool simulate;
+	bool simulate_control;
 
 	pid_t pid;
 
@@ -66,6 +67,12 @@ private:
 		double vel;
 		double angle_ref;
 		double vel_ref;
+		enum
+		{
+			STOP,
+			VELOCITY,
+			POSITION
+		} control;
 	};
 	std::vector<joint_params> joints;
 	std::map<std::string, int> joint_name_to_num;
@@ -89,9 +96,11 @@ private:
 	std::map<int, ros::Time> dio_revert;
 
 	trajectory_msgs::JointTrajectory cmd_joint;
+	geometry_msgs::Twist cmd_vel;
 
 	void cbCmdVel(const geometry_msgs::Twist::ConstPtr& msg)
 	{
+		cmd_vel = *msg;
 		YP::YPSpur_vel(msg->linear.x, msg->angular.z);
 	}
 	void cbJoint(const trajectory_msgs::JointTrajectory::ConstPtr& msg)
@@ -103,6 +112,10 @@ private:
 				cmd.velocities.resize(cmd_joint.points.size());
 			if(cmd.accelerations.size() < cmd_joint.points.size())
 				cmd.accelerations.resize(cmd_joint.points.size());
+		}
+		for(auto &j: joints)
+		{
+			j.control = j.POSITION;
 		}
 	}
 	void cbSetVel(const std_msgs::Float32::ConstPtr& msg, int num)
@@ -128,6 +141,7 @@ private:
 	void cbVel(const std_msgs::Float32::ConstPtr& msg, int num)
 	{
 		joints[num].vel_ref = msg->data;
+		joints[num].control = joint_params::VELOCITY;
 		//printf("vel %d %d %f\n", num, joints[num].id, msg->data);
 #if !(YPSPUR_JOINT_SUPPORT)
 		YP::YP_wheel_vel(joints[0].vel_ref, joints[1].vel_ref);
@@ -138,6 +152,7 @@ private:
 	void cbAngle(const std_msgs::Float32::ConstPtr& msg, int num)
 	{
 		joints[num].angle_ref = msg->data;
+		joints[num].control = joint_params::POSITION;
 #if !(YPSPUR_JOINT_SUPPORT)
 		YP::YP_wheel_ang(joints[0].angle_ref, joints[1].angle_ref);
 #else
@@ -158,6 +173,7 @@ private:
 			joints[num].vel = msg->velocities[i];
 			joints[num].accel = msg->accelerations[i];
 			joints[num].angle_ref = msg->positions[i];
+			joints[num].control = joint_params::POSITION;
 
 			//printf("%s %d %d  %f", name.c_str(), num, joints[num].id, joints[num].angle_ref);
 #if (YPSPUR_JOINT_SUPPORT)
@@ -238,6 +254,8 @@ public:
 		nh.param("port", port, std::string("/dev/ttyACM0"));
 		nh.param("ipc_key", key, 28741);
 		nh.param("simulate", simulate, false);
+		nh.param("simulate_control", simulate_control, false);
+		if(simulate_control) simulate = true;
 		nh.param("ypspur_bin", ypspur_bin, std::string("/usr/local/bin/ypspur-coordinator"));
 		nh.param("param_file", param_file, std::string(""));
 		std::string ad_mask("");
@@ -483,6 +501,14 @@ public:
 		odom.header.frame_id = frames["odom"];
 		odom.child_frame_id = frames["base_link"];
 		wrench.header.frame_id = frames["base_link"];
+		
+		odom.pose.pose.position.x = 0;
+		odom.pose.pose.position.y = 0;
+		odom.pose.pose.position.z = 0;
+		odom.pose.pose.orientation = tf::createQuaternionMsgFromYaw(0);
+		odom.twist.twist.linear.x = 0;
+		odom.twist.twist.linear.y = 0;
+		odom.twist.twist.angular.z = 0;
 
 		std::map<int, geometry_msgs::TransformStamped> joint_trans;
 		sensor_msgs::JointState joint;
@@ -498,6 +524,9 @@ public:
 			{
 				joint_trans[i].header.frame_id = joints[i].name + std::string("_in");
 				joint_trans[i].child_frame_id = joints[i].name + std::string("_out");
+				joint.velocity[i] = 0;
+				joint.position[i] = 0;
+				joint.effort[i] = 0;
 			}
 		}
 
@@ -512,9 +541,22 @@ public:
 				double x, y, yaw, v, w;
 				double t;
 
-				t = YP::YPSpur_get_pos(YP::CS_BS, &x, &y, &yaw);
-				if(t == 0.0) t = now.toSec();
-				YP::YPSpur_get_vel(&v, &w);
+				if(!simulate_control)
+				{
+					t = YP::YPSpur_get_pos(YP::CS_BS, &x, &y, &yaw);
+					if(t == 0.0) t = now.toSec();
+					YP::YPSpur_get_vel(&v, &w);
+				}
+				else
+				{
+					float dt = 1.0 / params["hz"];
+					t = ros::Time::now().toSec();
+					v = cmd_vel.linear.x;
+					w = cmd_vel.angular.z;
+					yaw = tf::getYaw(odom.pose.pose.orientation) + dt * w;
+					x = odom.pose.pose.position.x + dt * v * cosf(yaw);
+					y = odom.pose.pose.position.y + dt * v * sinf(yaw);
+				}
 
 				odom.header.stamp = ros::Time(t);
 				odom.pose.pose.position.x = x;
@@ -565,31 +607,67 @@ public:
 			if(joints.size() > 0)
 			{
 				double t;
-#if !(YPSPUR_JOINT_SUPPORT)
-				double js[2];
-				int i;
-				t = YP::YP_get_wheel_ang(&js[0], &js[1]);
-				i = 0;
-				for(auto &j: joints) joint.position[i++] = js[j.id];
-				YP::YP_get_wheel_vel(&js[0], &js[1]);
-				i = 0;
-				for(auto &j: joints) joint.velocity[i++] = js[j.id];
-				YP::YP_get_wheel_torque(&js[0], &js[1]);
-				i = 0;
-				for(auto &j: joints) joint.velocity[i++] = js[j.id];
-				if(t == 0.0) t = ros::Time::now().toSec();
-#else
-				int i = 0;
-				t = ros::Time::now().toSec();
-				for(auto &j: joints)
+				if(!simulate_control)
 				{
-					t = YP::YP_get_joint_ang(j.id, &joint.position[i]);
-					YP::YP_get_joint_vel(j.id, &joint.velocity[i]);
-					//YP::YP_get_joint_torque(j.id, &joint.effort[i]);
-					i ++;
-				}
+#if !(YPSPUR_JOINT_SUPPORT)
+					double js[2];
+					int i;
+					t = YP::YP_get_wheel_ang(&js[0], &js[1]);
+					i = 0;
+					for(auto &j: joints) joint.position[i++] = js[j.id];
+					YP::YP_get_wheel_vel(&js[0], &js[1]);
+					i = 0;
+					for(auto &j: joints) joint.velocity[i++] = js[j.id];
+					YP::YP_get_wheel_torque(&js[0], &js[1]);
+					i = 0;
+					for(auto &j: joints) joint.velocity[i++] = js[j.id];
+					if(t == 0.0) t = ros::Time::now().toSec();
+#else
+					int i = 0;
+					t = ros::Time::now().toSec();
+					for(auto &j: joints)
+					{
+						t = YP::YP_get_joint_ang(j.id, &joint.position[i]);
+						YP::YP_get_joint_vel(j.id, &joint.velocity[i]);
+						//YP::YP_get_joint_torque(j.id, &joint.effort[i]);
+						i ++;
+					}
 #endif
-				joint.header.stamp = ros::Time(t);
+					joint.header.stamp = ros::Time(t);
+				}
+				else
+				{
+					float dt = 1.0 / params["hz"];
+					t = ros::Time::now().toSec();
+					for(unsigned int i = 0; i < joints.size(); i ++)
+					{
+						auto vel_prev = joint.velocity[i];
+						switch(joints[i].control)
+						{
+						case joint_params::STOP:
+							break;
+						case joint_params::POSITION:
+							{
+								float position_err = joints[i].angle_ref - joint.position[i];
+								joints[i].vel_ref = sqrtf(2.0 * joints[i].accel * fabs(position_err));
+								if(joints[i].vel_ref > joints[i].vel) joints[i].vel_ref = joints[i].vel;
+								if(position_err < 0) joints[i].vel_ref = -joints[i].vel_ref;
+							}
+						case joint_params::VELOCITY:
+							joint.velocity[i] = joints[i].vel_ref;
+							if(joint.velocity[i] < vel_prev - dt * joints[i].accel)
+							{
+								joint.velocity[i] = vel_prev - dt * joints[i].accel;
+							}
+							else if(joint.velocity[i] > vel_prev + dt * joints[i].accel)
+							{
+								joint.velocity[i] = vel_prev + dt * joints[i].accel;
+							}
+							joint.position[i] += joint.velocity[i] * dt;
+							break;
+						}
+					}
+				}
 				pubs["joint"].publish(joint);
 
 				for(unsigned int i = 0; i < joints.size(); i ++)
