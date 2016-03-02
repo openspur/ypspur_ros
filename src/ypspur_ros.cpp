@@ -253,6 +253,7 @@ public:
 			nh.param(std::string("ad") + std::to_string(i) + std::string("_offset"),
 				   	ads[i].offset, 0.0);
 			ad_mask = (ads[i].enable ? std::string("1") : std::string("0")) + ad_mask;
+			pubs["ad/" + ads[i].name] = nh.advertise<std_msgs::Float32>("ad/" + ads[i].name, 1);
 		}
 		nh.param(std::string("digital_input_enable"), digital_input_enable, false);
 		dio_output_default = 0;
@@ -387,8 +388,6 @@ public:
 			subs["joint"] = nh.subscribe("cmd_joint", 1, &ypspur_ros_node::cbJoint, this);
 		}
 
-		pubs["ad"] = nh.advertise<std_msgs::Float32MultiArray>("ad", 1);
-		
 		pid = 0;
 		for(int i = 0; i < 2; i ++)
 		{
@@ -499,20 +498,6 @@ public:
 			{
 				joint_trans[i].header.frame_id = joints[i].name + std::string("_in");
 				joint_trans[i].child_frame_id = joints[i].name + std::string("_out");
-			}
-		}
-
-		std_msgs::Float32MultiArray ad;
-		ad.layout.data_offset = 0;
-		for(int i = 0; i < ad_num; i ++)
-		{
-			if(ads[i].enable)
-			{
-				std_msgs::MultiArrayDimension mad;
-				mad.label = ads[i].name;
-				mad.stride = 1;
-				mad.size = 1;
-				ad.layout.dim.push_back(mad);
 			}
 		}
 
@@ -631,17 +616,15 @@ public:
 				}
 			}
 
-			ad.data.clear();
 			for(int i = 0; i < ad_num; i ++)
 			{
 				if(ads[i].enable)
 				{
-					float val;
-					val = YP::YP_get_ad_value(i) * ads[i].gain + ads[i].offset;
-					ad.data.push_back(val);
+					std_msgs::Float32 ad;
+					ad.data = YP::YP_get_ad_value(i) * ads[i].gain + ads[i].offset;
+					pubs["ad/" + ads[i].name].publish(ad);
 				}
 			}
-			pubs["ad"].publish(ad);
 
 			for(int i = 0; i < dio_num; i ++)
 			{
