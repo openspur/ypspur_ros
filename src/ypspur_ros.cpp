@@ -646,6 +646,8 @@ public:
 			loop.sleep();
 		}
 		ROS_INFO("ypspur_ros main loop terminated");
+		ros::shutdown();
+		ros::spin();
 		if(pid > 0)
 		{
 			ROS_INFO("killing ypspur-coordinator (%d)", (int)pid);
