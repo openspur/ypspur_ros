@@ -225,7 +225,7 @@ private:
 		if(dio_dir != dio_dir_prev)
 			YP::YP_set_io_dir(dio_dir);
 
-		if(msg->toggle_time <= ros::Duration(0))
+		if(msg->toggle_time > ros::Duration(0))
 		{
 			dio_revert[id] = ros::Time::now() + msg->toggle_time;
 		}
@@ -295,7 +295,7 @@ public:
 
 				std::string output_default;
 				nh.param(std::string("dio") + std::to_string(i) + std::string("_default"),
-						output_default, std::string(std::string("dio") + std::to_string(i)));
+						output_default, std::string("HIGH_IMPEDANCE"));
 				if(output_default.compare("HIGH_IMPEDANCE"))
 				{
 				}
