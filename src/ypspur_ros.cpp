@@ -10,6 +10,7 @@
 #include <std_msgs/Bool.h>
 #include <ypspur_ros/DigitalOutput.h>
 #include <ypspur_ros/JointPositionControl.h>
+#include <ypspur_ros/ControlMode.h>
 
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
@@ -100,10 +101,30 @@ private:
 	trajectory_msgs::JointTrajectory cmd_joint;
 	geometry_msgs::Twist cmd_vel;
 
+	int control_mode;
+
+	void cbControlMode(const ypspur_ros::ControlMode::ConstPtr& msg)
+	{
+		control_mode = msg->vehicle_control_mode;
+		switch(control_mode)
+		{
+		case ypspur_ros::ControlMode::OPEN:
+			YP::YP_openfree();
+			break;
+		case ypspur_ros::ControlMode::TORQUE:
+			YP::YPSpur_free();
+			break;
+		case ypspur_ros::ControlMode::VELOCITY:
+			break;
+		}
+	}
 	void cbCmdVel(const geometry_msgs::Twist::ConstPtr& msg)
 	{
 		cmd_vel = *msg;
-		YP::YPSpur_vel(msg->linear.x, msg->angular.z);
+		if(control_mode == ypspur_ros::ControlMode::VELOCITY)
+		{
+			YP::YPSpur_vel(msg->linear.x, msg->angular.z);
+		}
 	}
 	void cbJoint(const trajectory_msgs::JointTrajectory::ConstPtr& msg)
 	{
@@ -408,6 +429,8 @@ public:
 			pubs["joint"] = nh.advertise<sensor_msgs::JointState>("joint", 1);
 			subs["joint"] = nh.subscribe("cmd_joint", 1, &ypspur_ros_node::cbJoint, this);
 		}
+		subs["control_mode"] = nh.subscribe("control_mode", 1, &ypspur_ros_node::cbControlMode, this);
+		control_mode = ypspur_ros::ControlMode::VELOCITY;
 
 		pid = 0;
 		for(int i = 0; i < 2; i ++)
