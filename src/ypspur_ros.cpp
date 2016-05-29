@@ -441,7 +441,6 @@ public:
 				pid = fork();
 				if(pid == 0)
 				{
-					setsid();
 					std::vector<std::string> args;
 					args.push_back(ypspur_bin);
 					args.push_back(std::string("-d"));
@@ -527,7 +526,7 @@ public:
 		odom.header.frame_id = frames["odom"];
 		odom.child_frame_id = frames["base_link"];
 		wrench.header.frame_id = frames["base_link"];
-		
+
 		odom.pose.pose.position.x = 0;
 		odom.pose.pose.position.y = 0;
 		odom.pose.pose.position.z = 0;
@@ -609,7 +608,7 @@ public:
 				wrench.wrench.torque.x = 0;
 				wrench.wrench.torque.y = 0;
 				pubs["wrench"].publish(wrench);
-				
+
 				if(frames["origin"].length() > 0)
 				{
 					try{
@@ -748,6 +747,28 @@ public:
 			}
 			ros::spinOnce();
 			loop.sleep();
+
+			int status;
+			if(waitpid(pid, &status, WNOHANG) == pid)
+			{
+				if(WIFEXITED(status))
+				{
+					ROS_ERROR("ypspur-coordinator exited");
+				}
+				else
+				{
+					if(WIFSTOPPED(status))
+					{
+						ROS_ERROR("ypspur-coordinator dead with signal %d",
+								WSTOPSIG(status));
+					}
+					else
+					{
+						ROS_ERROR("ypspur-coordinator dead");
+					}
+				}
+				break;
+			}
 		}
 		ROS_INFO("ypspur_ros main loop terminated");
 		ros::shutdown();
