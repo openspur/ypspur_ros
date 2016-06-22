@@ -345,10 +345,6 @@ public:
 		nh.param("odom_id", frames["odom"], std::string("odom"));
 		nh.param("base_link_id", frames["base_link"], std::string("base_link"));
 		nh.param("origin_id", frames["origin"], std::string(""));
-		nh.param("vel", params["vel"], 0.2);
-		nh.param("angvel", params["angvel"], 0.4);
-		nh.param("acc", params["acc"], 0.4);
-		nh.param("angacc", params["angacc"], 0.8);
 		nh.param("hz", params["hz"], 200.0);
 
 		std::string mode_name;
@@ -505,10 +501,30 @@ public:
 		ROS_INFO("ypspur-coordinator conneceted");
 		signal(SIGINT, sigint_handler);
 
+		YP::YP_get_parameter(YP::YP_PARAM_MAX_VEL, &params["vel"]);
+		YP::YP_get_parameter(YP::YP_PARAM_MAX_ACC_V, &params["acc"]);
+		YP::YP_get_parameter(YP::YP_PARAM_MAX_W, &params["angvel"]);
+		YP::YP_get_parameter(YP::YP_PARAM_MAX_ACC_W, &params["angacc"]);
+
+		if(!nh.hasParam("vel"))
+			ROS_WARN("default \"vel\" %0.3f used", (float)params["vel"]);
+		if(!nh.hasParam("acc"))
+			ROS_WARN("default \"acc\" %0.3f used", (float)params["acc"]);
+		if(!nh.hasParam("angvel"))
+			ROS_WARN("default \"angvel\" %0.3f used", (float)params["angvel"]);
+		if(!nh.hasParam("angacc"))
+			ROS_WARN("default \"angacc\" %0.3f used", (float)params["angacc"]);
+
+		nh.param("vel", params["vel"], params["vel"]);
+		nh.param("acc", params["acc"], params["acc"]);
+		nh.param("angvel", params["angvel"], params["angvel"]);
+		nh.param("angacc", params["angacc"], params["angacc"]);
+
 		YP::YPSpur_set_vel(params["vel"]);
 		YP::YPSpur_set_accel(params["acc"]);
 		YP::YPSpur_set_angvel(params["angvel"]);
 		YP::YPSpur_set_angaccel(params["angacc"]);
+
 		YP::YP_set_io_data(dio_output);
 		YP::YP_set_io_dir(dio_dir);
 	}
