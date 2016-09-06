@@ -78,6 +78,7 @@ private:
 			POSITION,
 			TRAJECTORY
 		} control;
+		trajectory_msgs::JointTrajectory cmd_joint;
 	};
 	std::vector<joint_params> joints;
 	std::map<std::string, int> joint_name_to_num;
@@ -100,7 +101,6 @@ private:
 	const int dio_num = 8;
 	std::map<int, ros::Time> dio_revert;
 
-	trajectory_msgs::JointTrajectory cmd_joint;
 	geometry_msgs::Twist cmd_vel;
 
 	int control_mode;
@@ -130,19 +130,33 @@ private:
 	}
 	void cbJoint(const trajectory_msgs::JointTrajectory::ConstPtr& msg)
 	{
-		cmd_joint = *msg;
-		if(cmd_joint.header.stamp == ros::Time(0))
-			cmd_joint.header.stamp = ros::Time::now();
-		for(auto &cmd: cmd_joint.points)
+		std_msgs::Header header = msg->header;
+		if(header.stamp == ros::Time(0))
+			header.stamp = ros::Time::now();
+		int i = 0;
+		for(auto &name: msg->joint_names)
 		{
-			if(cmd.velocities.size() < cmd_joint.points.size())
-				cmd.velocities.resize(cmd_joint.points.size());
-			if(cmd.accelerations.size() < cmd_joint.points.size())
-				cmd.accelerations.resize(cmd_joint.points.size());
-		}
-		for(auto &name: cmd_joint.joint_names)
-		{
-			joints[joint_name_to_num[name]].control = joint_params::TRAJECTORY;
+			auto &j = joints[joint_name_to_num[name]];
+			j.control = joint_params::TRAJECTORY;
+
+			j.cmd_joint.header = header;
+			j.cmd_joint.joint_names.resize(1);
+			j.cmd_joint.joint_names[0] = name;
+			for(auto &cmd: msg->points)
+			{
+				trajectory_msgs::JointTrajectoryPoint p;
+				p.time_from_start = cmd.time_from_start;
+				p.positions.resize(1);
+				p.velocities.resize(1);
+				if((int)cmd.velocities.size() <= i)
+					p.velocities[0] = 0.0;
+				else
+					p.velocities[0] = cmd.velocities[i];
+				p.positions[0] = cmd.positions[i];
+				
+				j.cmd_joint.points.push_back(p);
+			}
+			i ++;
 		}
 	}
 	void cbSetVel(const std_msgs::Float32::ConstPtr& msg, int num)
@@ -580,6 +594,7 @@ public:
 		while(!g_shutdown)
 		{
 			auto now = ros::Time::now();
+			float dt = 1.0 / params["hz"];
 
 			if(mode == DIFF)
 			{
@@ -594,7 +609,6 @@ public:
 				}
 				else
 				{
-					float dt = 1.0 / params["hz"];
 					t = ros::Time::now().toSec();
 					v = cmd_vel.linear.x;
 					w = cmd_vel.angular.z;
@@ -682,7 +696,6 @@ public:
 				}
 				else
 				{
-					float dt = 1.0 / params["hz"];
 					t = ros::Time::now().toSec();
 					for(unsigned int i = 0; i < joints.size(); i ++)
 					{
@@ -724,20 +737,6 @@ public:
 
 									if(joints[i].vel_ref > vel_max) joints[i].vel_ref = vel_max;
 									if(position_err < 0) joints[i].vel_ref = -joints[i].vel_ref;
-
-									if( (joints[i].vel_end > 0.0 &&
-												joints[i].angle_ref > joint.position[i] &&
-												joints[i].angle_ref < joint.position[i]
-												+ joints[i].vel_ref * dt ) ||
-											(joints[i].vel_end < 0.0 &&
-											 joints[i].angle_ref < joint.position[i] &&
-											 joints[i].angle_ref > joint.position[i]
-											 + joints[i].vel_ref * dt ) )
-									{
-										joints[i].control = joint_params::VELOCITY;
-										joints[i].vel_ref = joints[i].vel_end;
-									}
-
 								}
 								break;
 							default:
@@ -767,17 +766,22 @@ public:
 					tf_broadcaster.sendTransform(joint_trans[i]);
 				}
 
-				for(auto &cmd: cmd_joint.points)
+				for(unsigned int jid = 0; jid < joints.size(); jid ++)
 				{
+					if(joints[jid].control != joint_params::TRAJECTORY) continue;
+
+					auto &cmd_joint = joints[jid].cmd_joint;
 					auto t = now - cmd_joint.header.stamp;
 					if(t < ros::Duration(0)) continue;
-					if(now > cmd_joint.header.stamp + cmd.time_from_start) continue;
 
-					for(unsigned int i = 0; i < cmd.positions.size(); i ++)
+					bool done = true;
+					for(auto &cmd: cmd_joint.points)
 					{
-						int jid = joint_name_to_num[cmd_joint.joint_names[i]];
-						double ang_err = cmd.positions[i] - joint.position[jid];
-						double &vel_end = cmd.velocities[i];
+						if(now > cmd_joint.header.stamp + cmd.time_from_start) continue;
+						done = false;
+
+						double ang_err = cmd.positions[0] - joint.position[jid];
+						double &vel_end = cmd.velocities[0];
 						double &vel_start = joint.velocity[jid];
 						auto t_left = cmd.time_from_start - t;
 
@@ -792,10 +796,10 @@ public:
 							if(vel_end > vel_start) s = 1;
 							else s = -1;
 							v = (s * (vel_start + vel_end) * (vel_start - vel_end)
-								   	+ ang_err * joints[jid].accel * 2.0)
+									+ ang_err * joints[jid].accel * 2.0)
 								/ (2.0 * s * (vel_start - vel_end)
-									   	+ joints[jid].accel * 2.0 * (t_left.toSec()));
-							
+										+ joints[jid].accel * 2.0 * (t_left.toSec()));
+
 							double err_deacc;
 							err_deacc = fabs(vel_end * vel_end - v * v) / (joints[jid].accel * 2.0);
 							//ROS_INFO("v+-: %0.3f", v);
@@ -812,7 +816,7 @@ public:
 								double sq;
 								sq = -4.0 * st * st + 8.0 * st * en - 4.0 * en * en
 									+ 4.0 * sig * acc * 2 * (t * (st + en) - 2.0 * err)
-								   	+ 4.0 * acc * acc * t * t;
+									+ 4.0 * acc * acc * t * t;
 								if(sq < 0) return false;
 
 								ret = (2.0 * sig * (st + en) + 2.0 * acc * t + sol * sqrt(sq))
@@ -820,7 +824,7 @@ public:
 
 								return true;
 							};
-							
+
 							v_found = false;
 
 							if(vf(vel_start, vel_end, joints[jid].accel, ang_err, t_left.toSec(), 
@@ -868,21 +872,36 @@ public:
 						if(v_found)
 						{
 							//ROS_INFO("v: %0.3f", v_min);
-							joints[jid].angle_ref = cmd.positions[i];
+							joints[jid].angle_ref = cmd.positions[0];
 							joints[jid].vel_end = vel_end;
 							joints[jid].vel = v_min;
-							joints[i].control = joint_params::TRAJECTORY;
 
 							YP::YP_set_joint_vel(joints[jid].id, v_min);
 							YP::YP_set_joint_accel(joints[jid].id, joints[jid].accel);
-							YP::YP_joint_ang_vel(joints[jid].id, cmd.positions[i], vel_end);
+							YP::YP_joint_ang_vel(joints[jid].id, cmd.positions[0], vel_end);
 						}
 						else
 						{
 							ROS_ERROR("Impossible trajectory given");
 						}
+						break;
 					}
-					break;
+
+					if(done)
+					{
+						if( (joints[jid].vel_end > 0.0 &&
+									joints[jid].angle_ref > joint.position[jid] &&
+									joints[jid].angle_ref < joint.position[jid]
+									+ joints[jid].vel_ref * dt ) ||
+								(joints[jid].vel_end < 0.0 &&
+								 joints[jid].angle_ref < joint.position[jid] &&
+								 joints[jid].angle_ref > joint.position[jid]
+								 + joints[jid].vel_ref * dt ) )
+						{
+							joints[jid].control = joint_params::VELOCITY;
+							joints[jid].vel_ref = joints[jid].vel_end;
+						}
+					}
 				}
 			}
 
