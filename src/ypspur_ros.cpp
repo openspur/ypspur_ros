@@ -440,8 +440,8 @@ public:
 #endif
 		if(joints.size() > 0)
 		{
-			pubs["joint"] = nh.advertise<sensor_msgs::JointState>("joint", 1);
-			subs["joint"] = nh.subscribe("cmd_joint", 1, &ypspur_ros_node::cbJoint, this);
+			pubs["joint"] = nh.advertise<sensor_msgs::JointState>("joint", 2);
+			subs["joint"] = nh.subscribe("cmd_joint", joints.size() * 2, &ypspur_ros_node::cbJoint, this);
 		}
 		subs["control_mode"] = nh.subscribe("control_mode", 1, &ypspur_ros_node::cbControlMode, this);
 		control_mode = ypspur_ros::ControlMode::VELOCITY;
