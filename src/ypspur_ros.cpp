@@ -142,6 +142,7 @@ private:
 			j.cmd_joint.header = header;
 			j.cmd_joint.joint_names.resize(1);
 			j.cmd_joint.joint_names[0] = name;
+			j.cmd_joint.points.clear();
 			for(auto &cmd: msg->points)
 			{
 				trajectory_msgs::JointTrajectoryPoint p;
