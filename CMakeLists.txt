@@ -73,6 +73,10 @@ add_dependencies(ypspur_ros ypspur_ros_gencpp)
 add_executable(joint_tf_publisher src/joint_tf_publisher.cpp)
 target_link_libraries(joint_tf_publisher ${catkin_LIBRARIES})
 
+add_executable(joint_position_to_joint_trajectory src/joint_position_to_joint_trajectory.cpp)
+target_link_libraries(joint_position_to_joint_trajectory ${catkin_LIBRARIES})
+add_dependencies(joint_position_to_joint_trajectory ypspur_ros_gencpp)
+
 #############
 ## Install ##
 #############
