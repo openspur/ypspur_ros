@@ -81,8 +81,7 @@ private:
 		int i = 0;
 		for(auto &p: msg->positions)
 		{
-			float t_acc = msg->velocities[i] / accel;
-			float t = fabs(p) / msg->velocities[i] + t_acc; // Approx.
+			float t = fabs(p - state[msg->joint_names[i]]) / msg->velocities[i];
 			if(t_max < t) t_max = t;
 
 			i ++;
