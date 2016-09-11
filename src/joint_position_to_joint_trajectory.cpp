@@ -2,15 +2,26 @@
 
 #include <ypspur_ros/JointPositionControl.h>
 #include <trajectory_msgs/JointTrajectory.h>
+#include <sensor_msgs/JointState.h>
 
 class convert
 {
 private:
 	ros::Subscriber sub_joint;
+	ros::Subscriber sub_joint_state;
 	ros::Publisher pub_joint;
+
+	std::map<std::string, double> state;
 
 	double accel;
 
+	void cbJointState(const sensor_msgs::JointState::ConstPtr& msg)
+	{
+		for(int i = 0; i < (int)msg->name.size(); i ++)
+		{
+			state[msg->name[i]] = msg->position[i];
+		}
+	}
 	void cbJointPosition(const ypspur_ros::JointPositionControl::ConstPtr& msg)
 	{
 		trajectory_msgs::JointTrajectory cmd;
@@ -42,6 +53,8 @@ public:
 		ros::NodeHandle nh("~");
 		sub_joint = nh.subscribe( std::string("joint_position"), 5, 
 				&convert::cbJointPosition, this);
+		sub_joint_state = nh.subscribe( std::string("joint"), 5, 
+				&convert::cbJointState, this);
 		pub_joint = nh.advertise<trajectory_msgs::JointTrajectory>(
 				std::string("joint_trajectory"), 5, false);
 
