@@ -778,6 +778,7 @@ public:
 					bool done = true;
 					for(auto &cmd: cmd_joint.points)
 					{
+						if(cmd.time_from_start < ros::Duration(0)) continue;
 						if(now > cmd_joint.header.stamp + cmd.time_from_start) continue;
 						done = false;
 
