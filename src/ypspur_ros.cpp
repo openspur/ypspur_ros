@@ -130,6 +130,9 @@ private:
 	}
 	void cbJoint(const trajectory_msgs::JointTrajectory::ConstPtr& msg)
 	{
+#if !(YPSPUR_JOINT_ANG_VEL_SUPPORT)
+		ROS_ERROR("JointTrajectory command is not available on this YP-Spur version");
+#endif
 		std_msgs::Header header = msg->header;
 		if(header.stamp == ros::Time(0))
 			header.stamp = ros::Time::now();
@@ -767,6 +770,7 @@ public:
 					tf_broadcaster.sendTransform(joint_trans[i]);
 				}
 
+#if (YPSPUR_JOINT_ANG_VEL_SUPPORT)
 				for(unsigned int jid = 0; jid < joints.size(); jid ++)
 				{
 					if(joints[jid].control != joint_params::TRAJECTORY) continue;
@@ -905,6 +909,7 @@ public:
 						}
 					}
 				}
+#endif
 			}
 
 			for(int i = 0; i < ad_num; i ++)
