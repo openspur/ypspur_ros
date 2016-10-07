@@ -70,15 +70,12 @@ private:
 		double vel;
 		double angle_ref;
 		double vel_ref;
-		double vel_end;
 		enum
 		{
 			STOP,
 			VELOCITY,
-			POSITION,
-			TRAJECTORY
+			POSITION
 		} control;
-		trajectory_msgs::JointTrajectory cmd_joint;
 	};
 	std::vector<joint_params> joints;
 	std::map<std::string, int> joint_name_to_num;
@@ -101,6 +98,7 @@ private:
 	const int dio_num = 8;
 	std::map<int, ros::Time> dio_revert;
 
+	trajectory_msgs::JointTrajectory cmd_joint;
 	geometry_msgs::Twist cmd_vel;
 
 	int control_mode;
@@ -130,34 +128,17 @@ private:
 	}
 	void cbJoint(const trajectory_msgs::JointTrajectory::ConstPtr& msg)
 	{
-		std_msgs::Header header = msg->header;
-		if(header.stamp == ros::Time(0))
-			header.stamp = ros::Time::now();
-		int i = 0;
-		for(auto &name: msg->joint_names)
+		cmd_joint = *msg;
+		for(auto &cmd: cmd_joint.points)
 		{
-			auto &j = joints[joint_name_to_num[name]];
-			j.control = joint_params::TRAJECTORY;
-
-			j.cmd_joint.header = header;
-			j.cmd_joint.joint_names.resize(1);
-			j.cmd_joint.joint_names[0] = name;
-			j.cmd_joint.points.clear();
-			for(auto &cmd: msg->points)
-			{
-				trajectory_msgs::JointTrajectoryPoint p;
-				p.time_from_start = cmd.time_from_start;
-				p.positions.resize(1);
-				p.velocities.resize(1);
-				if((int)cmd.velocities.size() <= i)
-					p.velocities[0] = 0.0;
-				else
-					p.velocities[0] = cmd.velocities[i];
-				p.positions[0] = cmd.positions[i];
-				
-				j.cmd_joint.points.push_back(p);
-			}
-			i ++;
+			if(cmd.velocities.size() < cmd_joint.points.size())
+				cmd.velocities.resize(cmd_joint.points.size());
+			if(cmd.accelerations.size() < cmd_joint.points.size())
+				cmd.accelerations.resize(cmd_joint.points.size());
+		}
+		for(auto &j: joints)
+		{
+			j.control = j.POSITION;
 		}
 	}
 	void cbSetVel(const std_msgs::Float32::ConstPtr& msg, int num)
@@ -441,8 +422,8 @@ public:
 #endif
 		if(joints.size() > 0)
 		{
-			pubs["joint"] = nh.advertise<sensor_msgs::JointState>("joint", 2);
-			subs["joint"] = nh.subscribe("cmd_joint", joints.size() * 2, &ypspur_ros_node::cbJoint, this);
+			pubs["joint"] = nh.advertise<sensor_msgs::JointState>("joint", 1);
+			subs["joint"] = nh.subscribe("cmd_joint", 1, &ypspur_ros_node::cbJoint, this);
 		}
 		subs["control_mode"] = nh.subscribe("control_mode", 1, &ypspur_ros_node::cbControlMode, this);
 		control_mode = ypspur_ros::ControlMode::VELOCITY;
@@ -595,7 +576,6 @@ public:
 		while(!g_shutdown)
 		{
 			auto now = ros::Time::now();
-			float dt = 1.0 / params["hz"];
 
 			if(mode == DIFF)
 			{
@@ -610,6 +590,7 @@ public:
 				}
 				else
 				{
+					float dt = 1.0 / params["hz"];
 					t = ros::Time::now().toSec();
 					v = cmd_vel.linear.x;
 					w = cmd_vel.angular.z;
@@ -697,6 +678,7 @@ public:
 				}
 				else
 				{
+					float dt = 1.0 / params["hz"];
 					t = ros::Time::now().toSec();
 					for(unsigned int i = 0; i < joints.size(); i ++)
 					{
@@ -705,44 +687,14 @@ public:
 						{
 						case joint_params::STOP:
 							break;
-						case joint_params::TRAJECTORY:
 						case joint_params::POSITION:
-						case joint_params::VELOCITY:
-							switch(joints[i].control)
 							{
-							case joint_params::POSITION:
-								{
-									float position_err = joints[i].angle_ref - joint.position[i];
-									joints[i].vel_ref = sqrtf(2.0 * joints[i].accel * fabs(position_err));
-									if(joints[i].vel_ref > joints[i].vel) joints[i].vel_ref = joints[i].vel;
-									if(position_err < 0) joints[i].vel_ref = -joints[i].vel_ref;
-								}
-								break;
-							case joint_params::TRAJECTORY:
-								{
-									float position_err = joints[i].angle_ref - joint.position[i];
-									float v_sq = joints[i].vel_end * joints[i].vel_end + 2.0 * joints[i].accel * position_err;
-									joints[i].vel_ref = sqrtf(fabs(v_sq));
-
-									float vel_max;
-									if(fabs(joints[i].vel) < fabs(joints[i].vel_end))
-									{
-										if(fabs(position_err) < (joints[i].vel_end * joints[i].vel_end
-													- joints[i].vel * joints[i].vel) / (2.0 * joints[i].accel))
-											vel_max = fabs(joints[i].vel_end);
-										else
-											vel_max = joints[i].vel;
-									}
-									else
-										vel_max = joints[i].vel;
-
-									if(joints[i].vel_ref > vel_max) joints[i].vel_ref = vel_max;
-									if(position_err < 0) joints[i].vel_ref = -joints[i].vel_ref;
-								}
-								break;
-							default:
-								break;
+								float position_err = joints[i].angle_ref - joint.position[i];
+								joints[i].vel_ref = sqrtf(2.0 * joints[i].accel * fabs(position_err));
+								if(joints[i].vel_ref > joints[i].vel) joints[i].vel_ref = joints[i].vel;
+								if(position_err < 0) joints[i].vel_ref = -joints[i].vel_ref;
 							}
+						case joint_params::VELOCITY:
 							joint.velocity[i] = joints[i].vel_ref;
 							if(joint.velocity[i] < vel_prev - dt * joints[i].accel)
 							{
@@ -767,143 +719,19 @@ public:
 					tf_broadcaster.sendTransform(joint_trans[i]);
 				}
 
-				for(unsigned int jid = 0; jid < joints.size(); jid ++)
+				for(auto &cmd: cmd_joint.points)
 				{
-					if(joints[jid].control != joint_params::TRAJECTORY) continue;
-
-					auto &cmd_joint = joints[jid].cmd_joint;
 					auto t = now - cmd_joint.header.stamp;
-					if(t < ros::Duration(0)) continue;
+					if(cmd.time_from_start < t) continue;
 
-					bool done = true;
-					for(auto &cmd: cmd_joint.points)
+					for(unsigned int i = 0; i < cmd.positions.size(); i ++)
 					{
-						if(cmd.time_from_start < ros::Duration(0)) continue;
-						if(now > cmd_joint.header.stamp + cmd.time_from_start) continue;
-						done = false;
-
-						double ang_err = cmd.positions[0] - joint.position[jid];
-						double &vel_end = cmd.velocities[0];
-						double &vel_start = joint.velocity[jid];
-						auto t_left = cmd.time_from_start - t;
-
-						double v;
-						double v_min;
-						bool v_found = true;
-						do
-						{
-							//ROS_INFO("st: %0.3f, en: %0.3f, err: %0.3f, t: %0.3f", 
-							//		vel_start, vel_end, ang_err, t_left.toSec());
-							int s;
-							if(vel_end > vel_start) s = 1;
-							else s = -1;
-							v = (s * (vel_start + vel_end) * (vel_start - vel_end)
-									+ ang_err * joints[jid].accel * 2.0)
-								/ (2.0 * s * (vel_start - vel_end)
-										+ joints[jid].accel * 2.0 * (t_left.toSec()));
-
-							double err_deacc;
-							err_deacc = fabs(vel_end * vel_end - v * v) / (joints[jid].accel * 2.0);
-							//ROS_INFO("v+-: %0.3f", v);
-							v_min = fabs(v);
-							if((vel_start * s <= v * s || err_deacc >= fabs(ang_err)) &&
-									v * s <= vel_end * s) break;
-
-							v_min = DBL_MAX;
-
-							auto vf = [](const double &st, const double &en, 
-									const double &acc, const double &err, const double &t, 
-									const int &sig, const int &sol, double &ret)
-							{
-								double sq;
-								sq = -4.0 * st * st + 8.0 * st * en - 4.0 * en * en
-									+ 4.0 * sig * acc * 2 * (t * (st + en) - 2.0 * err)
-									+ 4.0 * acc * acc * t * t;
-								if(sq < 0) return false;
-
-								ret = (2.0 * sig * (st + en) + 2.0 * acc * t + sol * sqrt(sq))
-									/ (4.0 * sig);
-
-								return true;
-							};
-
-							v_found = false;
-
-							if(vf(vel_start, vel_end, joints[jid].accel, ang_err, t_left.toSec(), 
-										1, 1, v))
-							{
-								//ROS_INFO("v++: sol+ %0.3f", v);
-								if(v >= vel_start && v >= vel_end)
-								{
-									if( v_min > fabs(v) ) v_min = fabs(v);
-									v_found = true;
-								}
-							}
-							if(vf(vel_start, vel_end, joints[jid].accel, ang_err, t_left.toSec(), 
-										-1, 1, v))
-							{
-								//ROS_INFO("v--: sol+ %0.3f", v);
-								if(v <= vel_start && v <= vel_end)
-								{
-									if( v_min > fabs(v) ) v_min = fabs(v);
-									v_found = true;
-								}
-							}
-							if(vf(vel_start, vel_end, joints[jid].accel, ang_err, t_left.toSec(), 
-										1, -1, v))
-							{
-								//ROS_INFO("v++: sol- %0.3f", v);
-								if(v >= vel_start && v >= vel_end)
-								{
-									if( v_min > fabs(v) ) v_min = fabs(v);
-									v_found = true;
-								}
-							}
-							if(vf(vel_start, vel_end, joints[jid].accel, ang_err, t_left.toSec(), 
-										-1, -1, v))
-							{
-								//ROS_INFO("v--: sol- %0.3f", v);
-								if(v <= vel_start && v <= vel_end)
-								{
-									if( v_min > fabs(v) ) v_min = fabs(v);
-									v_found = true;
-								}
-							}
-						}
-						while(0);
-						if(v_found)
-						{
-							//ROS_INFO("v: %0.3f", v_min);
-							joints[jid].angle_ref = cmd.positions[0];
-							joints[jid].vel_end = vel_end;
-							joints[jid].vel = v_min;
-
-							YP::YP_set_joint_vel(joints[jid].id, v_min);
-							YP::YP_set_joint_accel(joints[jid].id, joints[jid].accel);
-							YP::YP_joint_ang_vel(joints[jid].id, cmd.positions[0], vel_end);
-						}
-						else
-						{
-							ROS_ERROR("Impossible trajectory given");
-						}
-						break;
+						int jid = joint_name_to_num[cmd_joint.joint_names[i]];
+						double ang_err = joint.position[jid] - cmd.positions[i];
+						/* Control here */
+						ROS_ERROR("Joint trajectory control is not supported yet");
 					}
-
-					if(done)
-					{
-						if( (joints[jid].vel_end > 0.0 &&
-									joints[jid].angle_ref > joint.position[jid] &&
-									joints[jid].angle_ref < joint.position[jid]
-									+ joints[jid].vel_ref * dt ) ||
-								(joints[jid].vel_end < 0.0 &&
-								 joints[jid].angle_ref < joint.position[jid] &&
-								 joints[jid].angle_ref > joint.position[jid]
-								 + joints[jid].vel_ref * dt ) )
-						{
-							joints[jid].control = joint_params::VELOCITY;
-							joints[jid].vel_ref = joints[jid].vel_end;
-						}
-					}
+					break;
 				}
 			}
 
