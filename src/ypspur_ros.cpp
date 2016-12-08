@@ -661,7 +661,7 @@ public:
 					for(auto &j: joints) joint.velocity[i++] = js[j.id];
 					YP::YP_get_wheel_torque(&js[0], &js[1]);
 					i = 0;
-					for(auto &j: joints) joint.velocity[i++] = js[j.id];
+					for(auto &j: joints) joint.effort[i++] = js[j.id];
 					if(t == 0.0) t = ros::Time::now().toSec();
 #else
 					int i = 0;
@@ -670,7 +670,7 @@ public:
 					{
 						t = YP::YP_get_joint_ang(j.id, &joint.position[i]);
 						YP::YP_get_joint_vel(j.id, &joint.velocity[i]);
-						//YP::YP_get_joint_torque(j.id, &joint.effort[i]);
+						YP::YP_get_joint_torque(j.id, &joint.effort[i]);
 						i ++;
 					}
 #endif
