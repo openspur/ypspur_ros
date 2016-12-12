@@ -317,23 +317,23 @@ public:
 				std::string output_default;
 				nh.param(std::string("dio") + std::to_string(i) + std::string("_default"),
 						output_default, std::string("HIGH_IMPEDANCE"));
-				if(output_default.compare("HIGH_IMPEDANCE"))
+				if(output_default.compare("HIGH_IMPEDANCE") == 0)
 				{
 				}
-				else if(output_default.compare("LOW"))
+				else if(output_default.compare("LOW") == 0)
 				{
 					dio_dir_default |= 1 << i;
 				}
-				else if(output_default.compare("HIGH"))
+				else if(output_default.compare("HIGH") == 0)
 				{
 					dio_dir_default |= 1 << i;
 					dio_output_default |= 1 << i;
 				}
-				else if(output_default.compare("PULL_UP"))
+				else if(output_default.compare("PULL_UP") == 0)
 				{
 					dio_output_default |= 1 << i;
 				}
-				else if(output_default.compare("PULL_DOWN"))
+				else if(output_default.compare("PULL_DOWN") == 0)
 				{
 					ROS_ERROR("Digital IO pull down is not supported on this system");
 				}
