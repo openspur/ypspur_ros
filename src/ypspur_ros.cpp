@@ -9,6 +9,7 @@
 #include <std_msgs/Float32.h>
 #include <std_msgs/Bool.h>
 #include <ypspur_ros/DigitalOutput.h>
+#include <ypspur_ros/DigitalInput.h>
 #include <ypspur_ros/JointPositionControl.h>
 #include <ypspur_ros/ControlMode.h>
 
@@ -91,8 +92,17 @@ private:
 		double gain;
 		double offset;
 	};
+	class dio_params
+	{
+	public:
+		bool enable;
+		std::string name;
+		bool input;
+		bool output;
+	};
 	bool digital_input_enable;
 	std::vector<ad_params> ads;
+	std::vector<dio_params> dios;
 	const int ad_num = 8;
 	unsigned int dio_output;
 	unsigned int dio_dir;
@@ -319,22 +329,31 @@ public:
 			ad_mask = (ads[i].enable ? std::string("1") : std::string("0")) + ad_mask;
 			pubs["ad/" + ads[i].name] = nh.advertise<std_msgs::Float32>("ad/" + ads[i].name, 1);
 		}
-		nh.param(std::string("digital_input_enable"), digital_input_enable, false);
+		digital_input_enable = false;
 		dio_output_default = 0;
 		dio_dir_default = 0;
+		dios.resize(dio_num);
 		for(int i = 0; i < dio_num; i ++)
 		{
-			bool output;
-			std::string name;
+			dio_params param;
 			nh.param(std::string("dio") + std::to_string(i) + std::string("_enable"),
-				   	output, false);
-			if(output)
+					param.enable, false);
+			if(param.enable)
 			{
 				nh.param(std::string("dio") + std::to_string(i) + std::string("_name"),
-						name, std::string(std::string("dio") + std::to_string(i)));
-				subs[name] = 
-					nh.subscribe<ypspur_ros::DigitalOutput>(name, 1, 
-							boost::bind(&ypspur_ros_node::cbDigitalOutput, this, _1, i));
+						param.name, std::string(std::string("dio") + std::to_string(i)));
+
+				nh.param(std::string("dio") + std::to_string(i) + std::string("_output"),
+						param.output, true);
+				nh.param(std::string("dio") + std::to_string(i) + std::string("_input"),
+						param.input, false);
+
+				if(param.output)
+				{
+					subs[param.name] = 
+						nh.subscribe<ypspur_ros::DigitalOutput>(param.name, 1, 
+								boost::bind(&ypspur_ros_node::cbDigitalOutput, this, _1, i));
+				}
 
 				std::string output_default;
 				nh.param(std::string("dio") + std::to_string(i) + std::string("_default"),
@@ -359,10 +378,17 @@ public:
 				{
 					ROS_ERROR("Digital IO pull down is not supported on this system");
 				}
+				if(param.input)
+					digital_input_enable = true;
 			}
+			dios[i] = param;
 		}
 		dio_output = dio_output_default;
 		dio_dir = dio_dir_default;
+		if(digital_input_enable)
+		{
+			pubs["din"] = nh.advertise<ypspur_ros::DigitalInput>("digital_input", 2);
+		}
 
 		nh.param("odom_id", frames["odom"], std::string("odom"));
 		nh.param("base_link_id", frames["base_link"], std::string("base_link"));
@@ -920,6 +946,25 @@ public:
 					ad.data = YP::YP_get_ad_value(i) * ads[i].gain + ads[i].offset;
 					pubs["ad/" + ads[i].name].publish(ad);
 				}
+			}
+
+			if(digital_input_enable)
+			{
+				ypspur_ros::DigitalInput din;
+
+				din.header.stamp = ros::Time::now();
+				int in = YP::YP_get_ad_value(15);
+				for(int i = 0; i < dio_num; i ++)
+				{
+					if(!dios[i].enable)
+						continue;
+					din.name.push_back(dios[i].name);
+					if(in & (1 << i))
+						din.state.push_back(true);
+					else
+						din.state.push_back(false);
+				}
+				pubs["din"].publish(din);
 			}
 
 			for(int i = 0; i < dio_num; i ++)
