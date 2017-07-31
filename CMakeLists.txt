@@ -35,14 +35,13 @@ generate_messages(
 
 catkin_package(
 	CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs tf
-	DEPENDS ypspur
 )
 
+find_package(ypspur)
 
 ###########
 ## Build ##
 ###########
-
 
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
@@ -58,6 +57,7 @@ endif()
 
 include_directories(
 	${catkin_INCLUDE_DIRS}
+	${ypspur_INCLUDE_DIRS}
 )
 
 add_executable(ypspur_ros src/ypspur_ros.cpp)
