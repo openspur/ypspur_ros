@@ -35,13 +35,9 @@ generate_messages(
 
 catkin_package(
 	CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs tf
-	DEPENDS system_lib
+	DEPENDS ypspur
 )
 
-find_library(HAS_YPSPUR_LIBRARY NAMES ypspur libypspur)
-if(NOT HAS_YPSPUR_LIBRARY)
-	message(FATAL_ERROR "YP-Spur not found. See https://openspur.org/redmine/projects/ypspur/ .")
-endif()
 
 ###########
 ## Build ##
