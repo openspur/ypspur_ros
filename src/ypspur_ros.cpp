@@ -311,7 +311,7 @@ public:
 		nh.param("simulate", simulate, false);
 		nh.param("simulate_control", simulate_control, false);
 		if(simulate_control) simulate = true;
-		nh.param("ypspur_bin", ypspur_bin, std::string("/usr/local/bin/ypspur-coordinator"));
+		nh.param("ypspur_bin", ypspur_bin, std::string("ypspur-coordinator"));
 		nh.param("param_file", param_file, std::string(""));
 		nh.param("tf_time_offset", tf_time_offset, 0.0);
 		std::string ad_mask("");
@@ -507,7 +507,7 @@ public:
 					for(unsigned int i = 0; i < args.size(); i ++) argv[i] = args[i].c_str();
 					argv[args.size()] = nullptr;
 
-					execv(ypspur_bin.c_str(), (char**)argv);
+					execvp(ypspur_bin.c_str(), (char**)argv);
 					ROS_ERROR("failed to start ypspur-coordinator");
 					throw(std::string("failed to start ypspur-coordinator"));
 				}
