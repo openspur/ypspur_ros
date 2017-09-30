@@ -13,11 +13,15 @@ source /catkin_ws/devel/setup.bash
 
 cd /catkin_ws
 
-SKIP_KEYS=''
 if [ -f $scriptdir/deps.rosinstall ];
 then
   wstool init src $scriptdir/deps.rosinstall
-  SKIP_KEYS="--skip-keys=\"`ls -1 src | tr '\n' ' '`\""
+fi
+
+SKIP_KEYS=''
+if [ -f $scriptdir/rosdepkeys.skip ];
+then
+  SKIP_KEYS="--skip-keys=\"`cat rosdepkeys.skip | tr '\n' ' '`\""
 fi
 
 apt-get -qq update && \
