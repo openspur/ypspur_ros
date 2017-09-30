@@ -13,14 +13,16 @@ source /catkin_ws/devel/setup.bash
 
 cd /catkin_ws
 
+SKIP_KEYS=''
 if [ -f $scriptdir/deps.rosinstall ];
 then
   wstool init src $scriptdir/deps.rosinstall
+  SKIP_KEYS="--skip-keys=\"`ls -1 src | tr '\n' ' '`\""
 fi
 
 apt-get -qq update && \
 apt-get install libxml2-utils && \
-rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -y && \
+rosdep install --from-paths src --ignore-src $SKIP_KEYS --rosdistro=${ROS_DISTRO} -y && \
 apt-get clean && \
 rm -rf /var/lib/apt/lists/*
 
