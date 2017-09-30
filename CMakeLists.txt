@@ -65,7 +65,7 @@ target_link_libraries(ypspur_ros
 	${catkin_LIBRARIES}
 	ypspur
 )
-add_dependencies(ypspur_ros ypspur_ros_gencpp)
+add_dependencies(ypspur_ros ypspur_ros_gencpp ypspur)
 
 add_executable(joint_tf_publisher src/joint_tf_publisher.cpp)
 target_link_libraries(joint_tf_publisher ${catkin_LIBRARIES})
