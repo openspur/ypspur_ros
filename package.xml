@@ -9,7 +9,6 @@
   <!-- <url type="website">http://wiki.ros.org/ypspur_ros</url> -->
   <author email="atsushi.w@openspur.org">Atsushi Watanabe</author>
 
-
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
@@ -18,7 +17,6 @@
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>tf</build_depend>
-  <build_depend>ypspur</build_depend>
 
   <run_depend>geometry_msgs</run_depend>
   <run_depend>sensor_msgs</run_depend>
@@ -27,8 +25,6 @@
   <run_depend>rospy</run_depend>
   <run_depend>std_msgs</run_depend>
   <run_depend>tf</run_depend>
-  <run_depend>ypspur</run_depend>
-
 
   <export>
   </export>
