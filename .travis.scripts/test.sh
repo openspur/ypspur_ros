@@ -31,10 +31,10 @@ rosdep install --from-paths src --ignore-src $SKIP_KEYS --rosdistro=${ROS_DISTRO
 apt-get clean && \
 rm -rf /var/lib/apt/lists/*
 
-CMI_OPTION="--install-space /opt/ros/${ROS_DISTRO} --install"
+CMI_OPTION="--install-space /opt/ros/${ROS_DISTRO}"
 CMI_ONLY_PKG="--pkg ${PACKAGE_NAME}"
 
-catkin_make_isolated $CMI_OPTION || \
+catkin_make_isolated $CMI_OPTION --install || \
   (gh-pr-comment FAILED '```catkin_make``` failed'; false)
 catkin_make_isolated $CMI_OPTION $CMI_ONLY_PKG --catkin-make-args tests || \
   (gh-pr-comment FAILED '```catkin_make tests``` failed'; false)
