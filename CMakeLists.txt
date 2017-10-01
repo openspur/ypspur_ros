@@ -37,7 +37,7 @@ catkin_package(
 	CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs tf
 )
 
-find_package(ypspur)
+find_package(ypspur REQUIRED)
 
 ###########
 ## Build ##
@@ -65,7 +65,7 @@ target_link_libraries(ypspur_ros
 	${catkin_LIBRARIES}
 	ypspur
 )
-add_dependencies(ypspur_ros ypspur_ros_gencpp ypspur)
+add_dependencies(ypspur_ros ypspur_ros_gencpp)
 
 add_executable(joint_tf_publisher src/joint_tf_publisher.cpp)
 target_link_libraries(joint_tf_publisher ${catkin_LIBRARIES})

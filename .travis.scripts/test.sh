@@ -9,7 +9,6 @@ wget -q -P /tmp https://raw.githubusercontent.com/at-wat/gh-pr-comment/master/gh
 source /tmp/gh-pr-comment.sh
 
 source /opt/ros/${ROS_DISTRO}/setup.bash
-source /catkin_ws/devel/setup.bash
 
 cd /catkin_ws
 
@@ -18,11 +17,13 @@ then
   wstool init src $scriptdir/deps.rosinstall
 fi
 
-SKIP_KEYS=''
+SKIP_KEYS=
 if [ -f $scriptdir/rosdepkeys.skip ];
 then
-  SKIP_KEYS="--skip-keys=\"`cat rosdepkeys.skip | tr '\n' ' '`\""
+  SKIP_KEYS="--skip-keys=\"$(cat $scriptdir/rosdepkeys.skip | tr '\n' ' ' | sed 's/\s*$//g')\""
 fi
+
+echo $SKIP_KEYS
 
 apt-get -qq update && \
 apt-get install libxml2-utils && \
@@ -30,9 +31,15 @@ rosdep install --from-paths src --ignore-src $SKIP_KEYS --rosdistro=${ROS_DISTRO
 apt-get clean && \
 rm -rf /var/lib/apt/lists/*
 
-catkin_make || (gh-pr-comment FAILED '```catkin_make``` failed'; false)
-catkin_make tests --cmake-args -DMCL_3DL_EXTRA_TESTS:=ON || (gh-pr-comment FAILED '```catkin_make tests``` failed'; false)
-catkin_make run_tests  --cmake-args -DMCL_3DL_EXTRA_TESTS:=ON || (gh-pr-comment FAILED '```catkin_make run_tests``` failed'; false)
+CMI_OPTION="--install-space /opt/ros/${ROS_DISTRO} --install"
+CMI_ONLY_PKG="--pkg ${PACKAGE_NAME}"
+
+catkin_make_isolated $CMI_OPTION || \
+  (gh-pr-comment FAILED '```catkin_make``` failed'; false)
+catkin_make_isolated $CMI_OPTION $CMI_ONLY_PKG --catkin-make-args tests || \
+  (gh-pr-comment FAILED '```catkin_make tests``` failed'; false)
+catkin_make_isolated $CMI_OPTION $CMI_ONLY_PKG --catkin-make-args run_tests || \
+  (gh-pr-comment FAILED '```catkin_make run_tests``` failed'; false)
 
 if [ catkin_test_results ];
 then
