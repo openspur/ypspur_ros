@@ -2,12 +2,13 @@ cmake_minimum_required(VERSION 2.8.3)
 project(ypspur_ros)
 
 find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  rospy
+  roslint
+  rostest
   geometry_msgs
   sensor_msgs
   nav_msgs
-  roscpp
-  rospy
-  rostest
   std_msgs
   tf
   message_generation
