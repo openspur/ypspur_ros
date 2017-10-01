@@ -2,42 +2,43 @@ cmake_minimum_required(VERSION 2.8.3)
 project(ypspur_ros)
 
 find_package(catkin REQUIRED COMPONENTS
-	geometry_msgs
-	sensor_msgs
-	nav_msgs
-	roscpp
-	rospy
-	std_msgs
-	tf
-	message_generation
+  roscpp
+  rospy
+  roslint
+  rostest
+  geometry_msgs
+  sensor_msgs
+  nav_msgs
+  std_msgs
+  tf
+  message_generation
 )
 
 # find_package(Boost REQUIRED COMPONENTS system)
 
 add_message_files(
-	FILES
-	DigitalOutput.msg
-	DigitalInput.msg
-	ControlMode.msg
-	JointPositionControl.msg
+  FILES
+  DigitalOutput.msg
+  DigitalInput.msg
+  ControlMode.msg
+  JointPositionControl.msg
 )
-
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
 
 generate_messages(
-	DEPENDENCIES
-	std_msgs
+  DEPENDENCIES
+  std_msgs
 )
 
-catkin_package(
-	CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs tf
+catkin_package(CATKIN_DEPENDS
+  geometry_msgs
+  nav_msgs
+  roscpp
+  rospy
+  std_msgs
+  tf
 )
 
-find_package(ypspur)
+find_package(ypspur REQUIRED)
 
 ###########
 ## Build ##
@@ -47,23 +48,23 @@ include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
 CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
 if(COMPILER_SUPPORTS_CXX11)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 elseif(COMPILER_SUPPORTS_CXX0X)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 else()
-	message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. ")
+  message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. ")
 endif()
 
 
 include_directories(
-	${catkin_INCLUDE_DIRS}
-	${ypspur_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
+  ${ypspur_INCLUDE_DIRS}
 )
 
 add_executable(ypspur_ros src/ypspur_ros.cpp)
 target_link_libraries(ypspur_ros
-	${catkin_LIBRARIES}
-	ypspur
+  ${catkin_LIBRARIES}
+  ypspur
 )
 add_dependencies(ypspur_ros ypspur_ros_gencpp)
 
@@ -79,17 +80,21 @@ add_dependencies(joint_position_to_joint_trajectory ypspur_ros_gencpp)
 #############
 
 install(TARGETS ypspur_ros ypspur_ros
-	ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-	LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-	RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 install(FILES
-	#launch/.launch
-	DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  #launch/.launch
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
 #############
 ## Testing ##
 #############
 
+roslint_cpp()
+if(CATKIN_ENABLE_TESTING)
+  #roslint_add_test()
+endif()
