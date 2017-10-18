@@ -785,6 +785,7 @@ public:
 							break;
 						}
 					}
+					joint.header.stamp = ros::Time(t);
 				}
 				pubs["joint"].publish(joint);
 
