@@ -14,8 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
 )
 
-# find_package(Boost REQUIRED COMPONENTS system)
-
 add_message_files(
   FILES
   DigitalOutput.msg
@@ -37,6 +35,7 @@ catkin_package(CATKIN_DEPENDS
   std_msgs
   tf
 )
+find_package(Boost REQUIRED COMPONENTS chrono thread atomic REQUIRED)
 
 find_package(ypspur REQUIRED)
 
@@ -96,5 +95,5 @@ install(FILES
 
 roslint_cpp()
 if(CATKIN_ENABLE_TESTING)
-  #roslint_add_test()
+  roslint_add_test()
 endif()
