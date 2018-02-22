@@ -741,31 +741,58 @@ public:
         if (!simulate_control)
         {
 #if !(YPSPUR_JOINT_SUPPORT)
-          double js[2];
-          int i;
-          t = YP::YP_get_wheel_ang(&js[0], &js[1]);
-          i = 0;
-          for (auto &j : joints)
-            joint.position[i++] = js[j.id];
-          YP::YP_get_wheel_vel(&js[0], &js[1]);
-          i = 0;
-          for (auto &j : joints)
-            joint.velocity[i++] = js[j.id];
-          YP::YP_get_wheel_torque(&js[0], &js[1]);
-          i = 0;
-          for (auto &j : joints)
-            joint.effort[i++] = js[j.id];
-          if (t == 0.0)
-            t = ros::Time::now().toSec();
-#else
-          int i = 0;
-          t = ros::Time::now().toSec();
-          for (auto &j : joints)
+          while (1)
           {
-            t = YP::YP_get_joint_ang(j.id, &joint.position[i]);
-            YP::YP_get_joint_vel(j.id, &joint.velocity[i]);
-            YP::YP_get_joint_torque(j.id, &joint.effort[i]);
-            i++;
+            double js[2];
+            int i;
+            t = YP::YP_get_wheel_ang(&js[0], &js[1]);
+            i = 0;
+            for (auto &j : joints)
+              joint.position[i++] = js[j.id];
+            if (t != YP::YP_get_wheel_vel(&js[0], &js[1]))
+              continue;
+            i = 0;
+            for (auto &j : joints)
+              joint.velocity[i++] = js[j.id];
+            if (t != YP::YP_get_wheel_torque(&js[0], &js[1]))
+              continue;
+            i = 0;
+            for (auto &j : joints)
+              joint.effort[i++] = js[j.id];
+
+            if (t == 0.0)
+              t = ros::Time::now().toSec();
+            break;
+          }
+#else
+          t = -1.0;
+          while (t < 0.0)
+          {
+            int i = 0;
+            for (auto &j : joints)
+            {
+              const double t0 = YP::YP_get_joint_ang(j.id, &joint.position[i]);
+              const double t1 = YP::YP_get_joint_vel(j.id, &joint.velocity[i]);
+              const double t2 = YP::YP_get_joint_torque(j.id, &joint.effort[i]);
+
+              if (t0 != t1 || t1 != t2)
+              {
+                // Retry if updated during this joint
+                t = -1.0;
+                break;
+              }
+              if (t < 0.0)
+              {
+                t = t0;
+              }
+              else if (t != t0)
+              {
+                // Retry if updated during loops
+                t = -1.0;
+                break;
+              }
+              i++;
+            }
           }
 #endif
           joint.header.stamp = ros::Time(t);
