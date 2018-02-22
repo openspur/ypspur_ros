@@ -793,6 +793,8 @@ public:
               }
               i++;
             }
+            if (t == 0.0)
+              t = ros::Time::now().toSec();
           }
 #endif
           joint.header.stamp = ros::Time(t);
