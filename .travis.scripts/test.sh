@@ -24,10 +24,10 @@ fi
 
 echo $SKIP_KEYS
 
-apt-get -qq update && \
-apt-get install libxml2-utils && \
-rosdep install --from-paths src --ignore-src $SKIP_KEYS --rosdistro=${ROS_DISTRO} -y && \
-apt-get clean && \
+apt-get -qq update
+apt-get install libxml2-utils
+eval rosdep install --from-paths src --ignore-src $SKIP_KEYS --rosdistro=${ROS_DISTRO} -y
+apt-get clean
 rm -rf /var/lib/apt/lists/*
 
 CMI_OPTION="--install-space /opt/ros/${ROS_DISTRO} --install"
