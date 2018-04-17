@@ -5,8 +5,7 @@ set -o verbose
 
 scriptdir=`dirname "${0}"`
 
-wget -q -P /tmp https://raw.githubusercontent.com/at-wat/gh-pr-comment/master/gh-pr-comment.sh
-source /tmp/gh-pr-comment.sh
+pip install gh-pr-comment
 
 source /opt/ros/${ROS_DISTRO}/setup.bash
 
@@ -62,4 +61,3 @@ gh-pr-comment "PASSED on ${ROS_DISTRO}" "All tests passed$result_text"
 
 cd ..
 rm -rf /catkin_ws || true
-
