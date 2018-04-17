@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   std_msgs
   tf
+  trajectory_msgs
   message_generation
 )
 
@@ -34,6 +35,7 @@ catkin_package(CATKIN_DEPENDS
   rospy
   std_msgs
   tf
+  trajectory_msgs
 )
 find_package(Boost REQUIRED COMPONENTS chrono thread atomic REQUIRED)
 
