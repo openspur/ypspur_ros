@@ -5,8 +5,7 @@ set -o verbose
 
 scriptdir=`dirname "${0}"`
 
-wget -q -P /tmp https://raw.githubusercontent.com/at-wat/gh-pr-comment/master/gh-pr-comment.sh
-source /tmp/gh-pr-comment.sh
+pip install gh-pr-comment
 
 source /opt/ros/${ROS_DISTRO}/setup.bash
 
@@ -25,10 +24,10 @@ fi
 
 echo $SKIP_KEYS
 
-apt-get -qq update && \
-apt-get install libxml2-utils && \
-rosdep install --from-paths src --ignore-src $SKIP_KEYS --rosdistro=${ROS_DISTRO} -y && \
-apt-get clean && \
+apt-get -qq update
+apt-get install libxml2-utils
+eval rosdep install --from-paths src --ignore-src $SKIP_KEYS --rosdistro=${ROS_DISTRO} -y
+apt-get clean
 rm -rf /var/lib/apt/lists/*
 
 CMI_OPTION="--install-space /opt/ros/${ROS_DISTRO} --install"
@@ -62,4 +61,3 @@ gh-pr-comment "PASSED on ${ROS_DISTRO}" "All tests passed$result_text"
 
 cd ..
 rm -rf /catkin_ws || true
-
