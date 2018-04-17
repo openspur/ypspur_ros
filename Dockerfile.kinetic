@@ -13,7 +13,7 @@ RUN rosdep update \
   && cd /catkin_ws/src \
   && bash -c ". /opt/ros/${ROS_DISTRO}/setup.bash && catkin_init_workspace && cd .. && catkin_make"
 
-COPY ./.travis.scripts/install_deps.sh /catkin_ws/src/ypspur_ros/.travis.scripts/install_deps.sh
+COPY ./.travis.scripts /catkin_ws/src/ypspur_ros/.travis.scripts
 COPY ./package.xml /catkin_ws/src/ypspur_ros/package.xml
 RUN /catkin_ws/src/ypspur_ros/.travis.scripts/install_deps.sh
 
