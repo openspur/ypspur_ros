@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   std_msgs
   tf
+  trajectory_msgs
   message_generation
 )
 
@@ -34,6 +35,7 @@ catkin_package(CATKIN_DEPENDS
   rospy
   std_msgs
   tf
+  trajectory_msgs
 )
 find_package(Boost REQUIRED COMPONENTS chrono thread atomic REQUIRED)
 
@@ -65,14 +67,15 @@ target_link_libraries(ypspur_ros
   ${catkin_LIBRARIES}
   ypspur
 )
-add_dependencies(ypspur_ros ypspur_ros_gencpp)
+add_dependencies(ypspur_ros ${ypspur_ros_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(joint_tf_publisher src/joint_tf_publisher.cpp)
 target_link_libraries(joint_tf_publisher ${catkin_LIBRARIES})
+add_dependencies(joint_tf_publisher ${ypspur_ros_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(joint_position_to_joint_trajectory src/joint_position_to_joint_trajectory.cpp)
 target_link_libraries(joint_position_to_joint_trajectory ${catkin_LIBRARIES})
-add_dependencies(joint_position_to_joint_trajectory ypspur_ros_gencpp)
+add_dependencies(joint_position_to_joint_trajectory ${ypspur_ros_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 #############
 ## Install ##
