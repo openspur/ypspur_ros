@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.0 (2018-04-19)
+------------------
 * Update CI settings (`#25 <https://github.com/openspur/ypspur_ros/issues/25>`_)
 
   * Use docker hub as a cache
