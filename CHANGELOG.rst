@@ -5,24 +5,24 @@ Changelog for package ypspur_ros
 Forthcoming
 -----------
 * Update CI settings (`#25 <https://github.com/openspur/ypspur_ros/issues/25>`_)
-  * Use docker hub as a cache
+    * Use docker hub as a cache
 * Fix build dependencies (`#24 <https://github.com/openspur/ypspur_ros/issues/24>`_)
-  * Fix cmake target build deps
-  * Fix package deps
+    * Fix cmake target build deps
+    * Fix package deps
 * Fix joint state timestamp coherency (`#23 <https://github.com/openspur/ypspur_ros/issues/23>`_)
-  * Fix joint state timestamp coherency
-  * Use system time if yp-spur didn't provide stamp
+   * Fix joint state timestamp coherency
+   * Use system time if yp-spur didn't provide stamp
 * Add build test on indigo. (`#20 <https://github.com/openspur/ypspur_ros/issues/20>`_)
 * Fix coding style. (`#19 <https://github.com/openspur/ypspur_ros/issues/19>`_)
 * Fix timestamp in simulation mode. (`#18 <https://github.com/openspur/ypspur_ros/issues/18>`_)
 * Add build test. (`#17 <https://github.com/openspur/ypspur_ros/issues/17>`_)
-  * Add build test.
-  * Fix indent in CMakeFile.
-  * Fix package deps.
+    * Add build test.
+    * Fix indent in CMakeFile.
+    * Fix package deps.
 * Support running ypspur-coordinator by using PATH env. (`#14 <https://github.com/openspur/ypspur_ros/issues/14>`_)
 * Use find_package(ypspur) instead of catkin_package. (`#12 <https://github.com/openspur/ypspur_ros/issues/12>`_)
 * Use CMake version of ypspur. (`#10 <https://github.com/openspur/ypspur_ros/issues/10>`_)
-  Also, fix dummy dependency to system_lib.
+     Also, fix dummy dependency to system_lib.
 * adds README (`#9 <https://github.com/openspur/ypspur_ros/issues/9>`_)
 * publishes digital input port state (`#8 <https://github.com/openspur/ypspur_ros/issues/8>`_)
 * fixes to compile with old versions of YP-Spur which does not have joint_ang_vel command
@@ -37,7 +37,7 @@ Forthcoming
 * adds joint trajectory control
 * fixes DIO default status parameter setting
 * supports joint effort output (`#4 <https://github.com/openspur/ypspur_ros/issues/4>`_)
-  This also fixes a bug that joint effort field was filled by velocity value on the version of YP-Spur without joint control support.
+    This also fixes a bug that joint effort field was filled by velocity value on the version of YP-Spur without joint control support.
 * changes default vel/acc settings to use values defined in the parameter file
 * fixes ypspur-coordinator process monitoring
 * adds vehicle control mode interface
