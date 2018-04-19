@@ -2,7 +2,7 @@
 <package>
   <name>ypspur_ros</name>
   <version>0.1.0</version>
-  <description>The ypspur_ros package</description>
+  <description>ROS wrapper for the mobile robot control platform YP-Spur</description>
 
   <maintainer email="atsushi.w@openspur.org">Atsushi Watanabe</maintainer>
   <license>BSD</license>
