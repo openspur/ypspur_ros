@@ -71,7 +71,7 @@ void sigintHandler(int sig)
 class YpspurRosNode
 {
 private:
-  ros::NodeHandle nh_;
+  ros::NodeHandle pnh_;
   std::map<std::string, ros::Publisher> pubs_;
   std::map<std::string, ros::Subscriber> subs_;
   tf::TransformListener tf_listener_;
@@ -256,7 +256,7 @@ private:
     {
       if (joint_name_to_num_.find(name_) == joint_name_to_num_.end())
       {
-        ROS_ERROR("Unknown joint name_ '%s'", name_.c_str());
+        ROS_ERROR("Unknown joint name '%s'", name_.c_str());
         continue;
       }
       int num = joint_name_to_num_[name_];
@@ -339,31 +339,31 @@ private:
 
 public:
   YpspurRosNode()
-    : nh_("~")
+    : pnh_("~")
   {
-    nh_.param("port", port_, std::string("/dev/ttyACM0"));
-    nh_.param("ipc_key", key_, 28741);
-    nh_.param("simulate", simulate_, false);
-    nh_.param("simulate_control", simulate_control_, false);
+    pnh_.param("port", port_, std::string("/dev/ttyACM0"));
+    pnh_.param("ipc_key", key_, 28741);
+    pnh_.param("simulate", simulate_, false);
+    pnh_.param("simulate_control", simulate_control_, false);
     if (simulate_control_)
       simulate_ = true;
-    nh_.param("ypspur_bin", ypspur_bin_, std::string("ypspur-coordinator"));
-    nh_.param("param_file", param_file_, std::string(""));
-    nh_.param("tf_time_offset", tf_time_offset_, 0.0);
+    pnh_.param("ypspur_bin", ypspur_bin_, std::string("ypspur-coordinator"));
+    pnh_.param("param_file", param_file_, std::string(""));
+    pnh_.param("tf_time_offset", tf_time_offset_, 0.0);
     std::string ad_mask("");
     ads_.resize(ad_num_);
     for (int i = 0; i < ad_num_; i++)
     {
-      nh_.param(std::string("ad") + std::to_string(i) + std::string("_enable"),
-                ads_[i].enable_, false);
-      nh_.param(std::string("ad") + std::to_string(i) + std::string("_name"),
-                ads_[i].name_, std::string("ad") + std::to_string(i));
-      nh_.param(std::string("ad") + std::to_string(i) + std::string("_gain"),
-                ads_[i].gain_, 1.0);
-      nh_.param(std::string("ad") + std::to_string(i) + std::string("_offset"),
-                ads_[i].offset_, 0.0);
+      pnh_.param(std::string("ad") + std::to_string(i) + std::string("_enable"),
+                 ads_[i].enable_, false);
+      pnh_.param(std::string("ad") + std::to_string(i) + std::string("_name"),
+                 ads_[i].name_, std::string("ad") + std::to_string(i));
+      pnh_.param(std::string("ad") + std::to_string(i) + std::string("_gain"),
+                 ads_[i].gain_, 1.0);
+      pnh_.param(std::string("ad") + std::to_string(i) + std::string("_offset"),
+                 ads_[i].offset_, 0.0);
       ad_mask = (ads_[i].enable_ ? std::string("1") : std::string("0")) + ad_mask;
-      pubs_["ad/" + ads_[i].name_] = nh_.advertise<std_msgs::Float32>("ad/" + ads_[i].name_, 1);
+      pubs_["ad/" + ads_[i].name_] = pnh_.advertise<std_msgs::Float32>("ad/" + ads_[i].name_, 1);
     }
     digital_input_enable_ = false;
     dio_output_default_ = 0;
@@ -372,28 +372,28 @@ public:
     for (int i = 0; i < dio_num_; i++)
     {
       DioParams param;
-      nh_.param(std::string("dio") + std::to_string(i) + std::string("_enable"),
-                param.enable_, false);
+      pnh_.param(std::string("dio") + std::to_string(i) + std::string("_enable"),
+                 param.enable_, false);
       if (param.enable_)
       {
-        nh_.param(std::string("dio") + std::to_string(i) + std::string("_name"),
-                  param.name_, std::string(std::string("dio") + std::to_string(i)));
+        pnh_.param(std::string("dio") + std::to_string(i) + std::string("_name"),
+                   param.name_, std::string(std::string("dio") + std::to_string(i)));
 
-        nh_.param(std::string("dio") + std::to_string(i) + std::string("_output"),
-                  param.output_, true);
-        nh_.param(std::string("dio") + std::to_string(i) + std::string("_input"),
-                  param.input_, false);
+        pnh_.param(std::string("dio") + std::to_string(i) + std::string("_output"),
+                   param.output_, true);
+        pnh_.param(std::string("dio") + std::to_string(i) + std::string("_input"),
+                   param.input_, false);
 
         if (param.output_)
         {
           subs_[param.name_] =
-              nh_.subscribe<ypspur_ros::DigitalOutput>(param.name_, 1,
-                                                       boost::bind(&YpspurRosNode::cbDigitalOutput, this, _1, i));
+              pnh_.subscribe<ypspur_ros::DigitalOutput>(param.name_, 1,
+                                                        boost::bind(&YpspurRosNode::cbDigitalOutput, this, _1, i));
         }
 
         std::string output_default;
-        nh_.param(std::string("dio") + std::to_string(i) + std::string("_default"),
-                  output_default, std::string("HIGH_IMPEDANCE"));
+        pnh_.param(std::string("dio") + std::to_string(i) + std::string("_default"),
+                   output_default, std::string("HIGH_IMPEDANCE"));
         if (output_default.compare("HIGH_IMPEDANCE") == 0)
         {
         }
@@ -423,71 +423,71 @@ public:
     dio_dir_ = dio_dir_default_;
     if (digital_input_enable_)
     {
-      pubs_["din"] = nh_.advertise<ypspur_ros::DigitalInput>("digital_input", 2);
+      pubs_["din"] = pnh_.advertise<ypspur_ros::DigitalInput>("digital_input", 2);
     }
 
-    nh_.param("odom_id", frames_["odom"], std::string("odom"));
-    nh_.param("base_link_id", frames_["base_link"], std::string("base_link"));
-    nh_.param("origin_id", frames_["origin"], std::string(""));
-    nh_.param("hz", params_["hz"], 200.0);
+    pnh_.param("odom_id", frames_["odom"], std::string("odom"));
+    pnh_.param("base_link_id", frames_["base_link"], std::string("base_link"));
+    pnh_.param("origin_id", frames_["origin"], std::string(""));
+    pnh_.param("hz", params_["hz"], 200.0);
 
     std::string mode_name;
-    nh_.param("OdometryMode", mode_name, std::string("diff"));
+    pnh_.param("OdometryMode", mode_name, std::string("diff"));
     if (mode_name.compare("diff") == 0)
     {
       mode_ = DIFF;
-      pubs_["wrench"] = nh_.advertise<geometry_msgs::WrenchStamped>("wrench", 1);
-      pubs_["odom"] = nh_.advertise<nav_msgs::Odometry>("odom", 1);
-      subs_["cmd_vel"] = nh_.subscribe("cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
+      pubs_["wrench"] = pnh_.advertise<geometry_msgs::WrenchStamped>("wrench", 1);
+      pubs_["odom"] = pnh_.advertise<nav_msgs::Odometry>("odom", 1);
+      subs_["cmd_vel"] = pnh_.subscribe("cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
     }
     else if (mode_name.compare("none") == 0)
     {
     }
     else
     {
-      ROS_ERROR("unknown mode_ '%s'", mode_name.c_str());
-      throw(std::string("unknown mode_ '") + mode_name + std::string("'"));
+      ROS_ERROR("unknown mode '%s'", mode_name.c_str());
+      throw(std::string("unknown mode '") + mode_name + std::string("'"));
     }
 
     int max_joint_id;
     bool separated_joint;
-    nh_.param("max_joint_id", max_joint_id, 32);
-    nh_.param("separated_joint_control", separated_joint, false);
+    pnh_.param("max_joint_id", max_joint_id, 32);
+    pnh_.param("separated_joint_control", separated_joint, false);
     int num = 0;
     for (int i = 0; i < max_joint_id; i++)
     {
       std::string name_;
       name_ = std::string("joint") + std::to_string(i);
-      if (nh_.hasParam(name_ + std::string("_enable")))
+      if (pnh_.hasParam(name_ + std::string("_enable")))
       {
         bool en;
-        nh_.param(name_ + std::string("_enable"), en, false);
+        pnh_.param(name_ + std::string("_enable"), en, false);
         if (en)
         {
           JointParams jp;
           jp.id_ = i;
-          nh_.param(name_ + std::string("_name"), jp.name_, name_);
-          nh_.param(name_ + std::string("_accel"), jp.accel_, 3.14);
+          pnh_.param(name_ + std::string("_name"), jp.name_, name_);
+          pnh_.param(name_ + std::string("_accel"), jp.accel_, 3.14);
           joint_name_to_num_[jp.name_] = num;
           joints_.push_back(jp);
           // printf("%s %d %d", jp.name_.c_str(), jp.id_, joint_name_to_num_[jp.name_]);
           if (separated_joint)
           {
             subs_[jp.name_ + std::string("_setVel")] =
-                nh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_setVel"), 1,
-                                                 boost::bind(&YpspurRosNode::cbSetVel, this, _1, num));
+                pnh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_setVel"), 1,
+                                                  boost::bind(&YpspurRosNode::cbSetVel, this, _1, num));
             subs_[jp.name_ + std::string("_setAccel")] =
-                nh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_setAccel"), 1,
-                                                 boost::bind(&YpspurRosNode::cbSetAccel, this, _1, num));
+                pnh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_setAccel"), 1,
+                                                  boost::bind(&YpspurRosNode::cbSetAccel, this, _1, num));
             subs_[jp.name_ + std::string("_vel")] =
-                nh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_vel"), 1,
-                                                 boost::bind(&YpspurRosNode::cbVel, this, _1, num));
+                pnh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_vel"), 1,
+                                                  boost::bind(&YpspurRosNode::cbVel, this, _1, num));
             subs_[jp.name_ + std::string("_pos")] =
-                nh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_pos"), 1,
-                                                 boost::bind(&YpspurRosNode::cbAngle, this, _1, num));
+                pnh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_pos"), 1,
+                                                  boost::bind(&YpspurRosNode::cbAngle, this, _1, num));
           }
           subs_[std::string("joint_position")] =
-              nh_.subscribe<ypspur_ros::JointPositionControl>(
+              pnh_.subscribe<ypspur_ros::JointPositionControl>(
                   std::string("joint_position"), 1,
                   &YpspurRosNode::cbJointPosition, this);
           num++;
@@ -506,10 +506,10 @@ public:
 #endif
     if (joints_.size() > 0)
     {
-      pubs_["joint"] = nh_.advertise<sensor_msgs::JointState>("joint", 2);
-      subs_["joint"] = nh_.subscribe("cmd_joint", joints_.size() * 2, &YpspurRosNode::cbJoint, this);
+      pubs_["joint"] = pnh_.advertise<sensor_msgs::JointState>("joint", 2);
+      subs_["joint"] = pnh_.subscribe("cmd_joint", joints_.size() * 2, &YpspurRosNode::cbJoint, this);
     }
-    subs_["control_mode"] = nh_.subscribe("control_mode", 1, &YpspurRosNode::cbControlMode, this);
+    subs_["control_mode"] = pnh_.subscribe("control_mode", 1, &YpspurRosNode::cbControlMode, this);
     control_mode_ = ypspur_ros::ControlMode::VELOCITY;
 
     pid_ = 0;
@@ -592,19 +592,19 @@ public:
     YP::YP_get_parameter(YP::YP_PARAM_MAX_W, &params_["angvel"]);
     YP::YP_get_parameter(YP::YP_PARAM_MAX_ACC_W, &params_["angacc"]);
 
-    if (!nh_.hasParam("vel"))
-      ROS_WARN("default \"vel_\" %0.3f used", (float)params_["vel"]);
-    if (!nh_.hasParam("acc"))
+    if (!pnh_.hasParam("vel"))
+      ROS_WARN("default \"vel\" %0.3f used", (float)params_["vel"]);
+    if (!pnh_.hasParam("acc"))
       ROS_WARN("default \"acc\" %0.3f used", (float)params_["acc"]);
-    if (!nh_.hasParam("angvel"))
+    if (!pnh_.hasParam("angvel"))
       ROS_WARN("default \"angvel\" %0.3f used", (float)params_["angvel"]);
-    if (!nh_.hasParam("angacc"))
+    if (!pnh_.hasParam("angacc"))
       ROS_WARN("default \"angacc\" %0.3f used", (float)params_["angacc"]);
 
-    nh_.param("vel", params_["vel"], params_["vel"]);
-    nh_.param("acc", params_["acc"], params_["acc"]);
-    nh_.param("angvel", params_["angvel"], params_["angvel"]);
-    nh_.param("angacc", params_["angacc"], params_["angacc"]);
+    pnh_.param("vel", params_["vel"], params_["vel"]);
+    pnh_.param("acc", params_["acc"], params_["acc"]);
+    pnh_.param("angvel", params_["angvel"], params_["angvel"]);
+    pnh_.param("angacc", params_["angacc"], params_["angacc"]);
 
     YP::YPSpur_set_vel(params_["vel"]);
     YP::YPSpur_set_accel(params_["acc"]);
