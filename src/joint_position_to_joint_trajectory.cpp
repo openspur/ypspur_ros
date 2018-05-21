@@ -36,23 +36,24 @@
 #include <map>
 #include <string>
 
-class convert
+class ConvertNode
 {
 private:
-  ros::Subscriber sub_joint;
-  ros::Subscriber sub_joint_state;
-  ros::Publisher pub_joint;
+  ros::NodeHandle pnh_;
+  ros::Subscriber sub_joint_;
+  ros::Subscriber sub_joint_state_;
+  ros::Publisher pub_joint_;
 
-  std::map<std::string, double> state;
+  std::map<std::string, double> state_;
 
-  double accel;
-  bool skip_same;
+  double accel_;
+  bool skip_same_;
 
   void cbJointState(const sensor_msgs::JointState::ConstPtr& msg)
   {
     for (size_t i = 0; i < msg->name.size(); i++)
     {
-      state[msg->name[i]] = msg->position[i];
+      state_[msg->name[i]] = msg->position[i];
     }
   }
   ypspur_ros::JointPositionControl cmd_prev;
@@ -124,7 +125,7 @@ private:
     int i = 0;
     for (auto& p : msg->positions)
     {
-      float t = fabs(p - state[msg->joint_names[i]]) / msg->velocities[i];
+      float t = fabs(p - state_[msg->joint_names[i]]) / msg->velocities[i];
       if (t_max < t)
         t_max = t;
 
@@ -132,22 +133,22 @@ private:
     }
     cmd.points[0].time_from_start = ros::Duration(t_max);
 
-    pub_joint.publish(cmd);
+    pub_joint_.publish(cmd);
   }
 
 public:
-  convert()
+  ConvertNode()
+    : pnh_("~")
   {
-    ros::NodeHandle nh("~");
-    sub_joint = nh.subscribe(std::string("joint_position"), 5,
-                             &convert::cbJointPosition, this);
-    sub_joint_state = nh.subscribe(std::string("joint"), 5,
-                                   &convert::cbJointState, this);
-    pub_joint = nh.advertise<trajectory_msgs::JointTrajectory>(
+    sub_joint_ = pnh_.subscribe(std::string("joint_position"), 5,
+                                &ConvertNode::cbJointPosition, this);
+    sub_joint_state_ = pnh_.subscribe(std::string("joint"), 5,
+                                      &ConvertNode::cbJointState, this);
+    pub_joint_ = pnh_.advertise<trajectory_msgs::JointTrajectory>(
         std::string("joint_trajectory"), 5, false);
 
-    nh.param("accel", accel, 0.3);
-    nh.param("skip_same", skip_same, true);
+    pnh_.param("accel", accel_, 0.3);
+    pnh_.param("skip_same", skip_same_, true);
   }
 };
 
@@ -155,7 +156,7 @@ int main(int argc, char* argv[])
 {
   ros::init(argc, argv, "joint_position_to_joint_trajectory");
 
-  convert conv;
+  ConvertNode conv;
   ros::spin();
 
   return 0;
