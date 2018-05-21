@@ -182,14 +182,14 @@ private:
     if (header.stamp == ros::Time(0))
       header.stamp = ros::Time::now();
     size_t i = 0;
-    for (auto &name_ : msg->joint_names)
+    for (auto &name : msg->joint_names)
     {
-      auto &j = joints_[joint_name_to_num_[name_]];
+      auto &j = joints_[joint_name_to_num_[name]];
       j.control_ = JointParams::TRAJECTORY;
 
       j.cmd_joint_.header = header;
       j.cmd_joint_.joint_names.resize(1);
-      j.cmd_joint_.joint_names[0] = name_;
+      j.cmd_joint_.joint_names[0] = name;
       j.cmd_joint_.points.clear();
       for (auto &cmd : msg->points)
       {
@@ -252,15 +252,15 @@ private:
   void cbJointPosition(const ypspur_ros::JointPositionControl::ConstPtr &msg)
   {
     int i = 0;
-    for (auto &name_ : msg->joint_names)
+    for (auto &name : msg->joint_names)
     {
-      if (joint_name_to_num_.find(name_) == joint_name_to_num_.end())
+      if (joint_name_to_num_.find(name) == joint_name_to_num_.end())
       {
-        ROS_ERROR("Unknown joint name '%s'", name_.c_str());
+        ROS_ERROR("Unknown joint name '%s'", name.c_str());
         continue;
       }
-      int num = joint_name_to_num_[name_];
-      // printf("%s %d %d  %f", name_.c_str(), num, joints_[num].id_, msg->positions[i]);
+      int num = joint_name_to_num_[name];
+      // printf("%s %d %d  %f", name.c_str(), num, joints_[num].id_, msg->positions[i]);
       joints_[num].vel_ = msg->velocities[i];
       joints_[num].accel_ = msg->accelerations[i];
       joints_[num].angle_ref_ = msg->positions[i];
@@ -456,18 +456,18 @@ public:
     int num = 0;
     for (int i = 0; i < max_joint_id; i++)
     {
-      std::string name_;
-      name_ = std::string("joint") + std::to_string(i);
-      if (pnh_.hasParam(name_ + std::string("_enable")))
+      std::string name;
+      name = std::string("joint") + std::to_string(i);
+      if (pnh_.hasParam(name + std::string("_enable")))
       {
         bool en;
-        pnh_.param(name_ + std::string("_enable"), en, false);
+        pnh_.param(name + std::string("_enable"), en, false);
         if (en)
         {
           JointParams jp;
           jp.id_ = i;
-          pnh_.param(name_ + std::string("_name"), jp.name_, name_);
-          pnh_.param(name_ + std::string("_accel"), jp.accel_, 3.14);
+          pnh_.param(name + std::string("_name"), jp.name_, name);
+          pnh_.param(name + std::string("_accel"), jp.accel_, 3.14);
           joint_name_to_num_[jp.name_] = num;
           joints_.push_back(jp);
           // printf("%s %d %d", jp.name_.c_str(), jp.id_, joint_name_to_num_[jp.name_]);
