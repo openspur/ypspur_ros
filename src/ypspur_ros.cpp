@@ -507,9 +507,9 @@ public:
                 pnh_, jp.name_ + std::string("_pos"), 1,
                 boost::bind(&YpspurRosNode::cbAngle, this, _1, num));
           }
-          subs_[std::string("joint_position")] = compat::subscribe<ypspur_ros::JointPositionControl>(
-              nh_, "joint_position",
-              pnh_, "joint_position", 1, &YpspurRosNode::cbJointPosition, this);
+          subs_[std::string("joint_position")] = compat::subscribe(
+              nh_, std::string("joint_position"),
+              pnh_, std::string("joint_position"), 1, &YpspurRosNode::cbJointPosition, this);
           num++;
         }
       }

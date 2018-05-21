@@ -147,6 +147,32 @@ ros::Subscriber subscribe(
   }
 }
 template <class M>
+ros::Subscriber subscribe(
+    ros::NodeHandle &nh_new,
+    const std::string &topic_new,
+    ros::NodeHandle &nh_old,
+    const std::string &topic_old,
+    uint32_t queue_size,
+    const boost::function<void(const boost::shared_ptr<M const> &)> &callback,
+    const ros::VoidConstPtr &tracked_object = ros::VoidConstPtr(),
+    const ros::TransportHints &transport_hints = ros::TransportHints())
+{
+  if (getCompat() != current_level)
+  {
+    ROS_ERROR(
+        "Use %s (%s%s) topic instead of %s (%s%s)",
+        nh_new.resolveName(topic_new, false).c_str(),
+        getSimplifiedNamespace(nh_new).c_str(), topic_new.c_str(),
+        nh_old.resolveName(topic_old, false).c_str(),
+        getSimplifiedNamespace(nh_old).c_str(), topic_old.c_str());
+    return nh_old.subscribe(topic_old, queue_size, callback, tracked_object, transport_hints);
+  }
+  else
+  {
+    return nh_new.subscribe(topic_new, queue_size, callback, tracked_object, transport_hints);
+  }
+}
+template <class M>
 ros::Publisher advertise(
     ros::NodeHandle &nh_new,
     const std::string &topic_new,
