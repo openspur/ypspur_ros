@@ -36,9 +36,12 @@
 #include <map>
 #include <string>
 
+#include <compatibility.h>
+
 class ConvertNode
 {
 private:
+  ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
   ros::Subscriber sub_joint_;
   ros::Subscriber sub_joint_state_;
@@ -138,14 +141,18 @@ private:
 
 public:
   ConvertNode()
-    : pnh_("~")
+    : nh_()
+    , pnh_("~")
   {
-    sub_joint_ = pnh_.subscribe(std::string("joint_position"), 5,
-                                &ConvertNode::cbJointPosition, this);
-    sub_joint_state_ = pnh_.subscribe(std::string("joint"), 5,
-                                      &ConvertNode::cbJointState, this);
-    pub_joint_ = pnh_.advertise<trajectory_msgs::JointTrajectory>(
-        std::string("joint_trajectory"), 5, false);
+    sub_joint_ = compat::subscribe(
+        nh_, "joint_position",
+        pnh_, "joint_position", 5, &ConvertNode::cbJointPosition, this);
+    sub_joint_state_ = compat::subscribe(
+        nh_, "joint",
+        pnh_, "joint", 5, &ConvertNode::cbJointState, this);
+    pub_joint_ = compat::advertise<trajectory_msgs::JointTrajectory>(
+        nh_, "joint_trajectory",
+        pnh_, "joint_trajectory", 5, false);
 
     pnh_.param("accel", accel_, 0.3);
     pnh_.param("skip_same", skip_same_, true);
