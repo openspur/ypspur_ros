@@ -57,6 +57,8 @@
 #include <string>
 #include <vector>
 
+#include <compatibility.h>
+
 namespace YP
 {
 #include <ypspur.h>
@@ -71,6 +73,7 @@ void sigintHandler(int sig)
 class YpspurRosNode
 {
 private:
+  ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
   std::map<std::string, ros::Publisher> pubs_;
   std::map<std::string, ros::Subscriber> subs_;
@@ -339,8 +342,11 @@ private:
 
 public:
   YpspurRosNode()
-    : pnh_("~")
+    : nh_()
+    , pnh_("~")
   {
+    compat::checkCompatMode();
+
     pnh_.param("port", port_, std::string("/dev/ttyACM0"));
     pnh_.param("ipc_key", key_, 28741);
     pnh_.param("simulate", simulate_, false);
@@ -363,7 +369,9 @@ public:
       pnh_.param(std::string("ad") + std::to_string(i) + std::string("_offset"),
                  ads_[i].offset_, 0.0);
       ad_mask = (ads_[i].enable_ ? std::string("1") : std::string("0")) + ad_mask;
-      pubs_["ad/" + ads_[i].name_] = pnh_.advertise<std_msgs::Float32>("ad/" + ads_[i].name_, 1);
+      pubs_["ad/" + ads_[i].name_] = compat::advertise<std_msgs::Float32>(
+          nh_, "ad/" + ads_[i].name_,
+          pnh_, "ad/" + ads_[i].name_, 1);
     }
     digital_input_enable_ = false;
     dio_output_default_ = 0;
@@ -386,9 +394,10 @@ public:
 
         if (param.output_)
         {
-          subs_[param.name_] =
-              pnh_.subscribe<ypspur_ros::DigitalOutput>(param.name_, 1,
-                                                        boost::bind(&YpspurRosNode::cbDigitalOutput, this, _1, i));
+          subs_[param.name_] = compat::subscribe<ypspur_ros::DigitalOutput>(
+              nh_, param.name_,
+              pnh_, param.name_, 1,
+              boost::bind(&YpspurRosNode::cbDigitalOutput, this, _1, i));
         }
 
         std::string output_default;
@@ -423,7 +432,9 @@ public:
     dio_dir_ = dio_dir_default_;
     if (digital_input_enable_)
     {
-      pubs_["din"] = pnh_.advertise<ypspur_ros::DigitalInput>("digital_input", 2);
+      pubs_["din"] = compat::advertise<ypspur_ros::DigitalInput>(
+          nh_, "digital_input",
+          pnh_, "digital_input", 2);
     }
 
     pnh_.param("odom_id", frames_["odom"], std::string("odom"));
@@ -436,9 +447,15 @@ public:
     if (mode_name.compare("diff") == 0)
     {
       mode_ = DIFF;
-      pubs_["wrench"] = pnh_.advertise<geometry_msgs::WrenchStamped>("wrench", 1);
-      pubs_["odom"] = pnh_.advertise<nav_msgs::Odometry>("odom", 1);
-      subs_["cmd_vel"] = pnh_.subscribe("cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
+      pubs_["wrench"] = compat::advertise<geometry_msgs::WrenchStamped>(
+          nh_, "wrench",
+          pnh_, "wrench", 1);
+      pubs_["odom"] = compat::advertise<nav_msgs::Odometry>(
+          nh_, "odom",
+          pnh_, "odom", 1);
+      subs_["cmd_vel"] = compat::subscribe(
+          nh_, "cmd_vel",
+          pnh_, "cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
     }
     else if (mode_name.compare("none") == 0)
     {
@@ -473,23 +490,26 @@ public:
           // printf("%s %d %d", jp.name_.c_str(), jp.id_, joint_name_to_num_[jp.name_]);
           if (separated_joint)
           {
-            subs_[jp.name_ + std::string("_setVel")] =
-                pnh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_setVel"), 1,
-                                                  boost::bind(&YpspurRosNode::cbSetVel, this, _1, num));
-            subs_[jp.name_ + std::string("_setAccel")] =
-                pnh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_setAccel"), 1,
-                                                  boost::bind(&YpspurRosNode::cbSetAccel, this, _1, num));
-            subs_[jp.name_ + std::string("_vel")] =
-                pnh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_vel"), 1,
-                                                  boost::bind(&YpspurRosNode::cbVel, this, _1, num));
-            subs_[jp.name_ + std::string("_pos")] =
-                pnh_.subscribe<std_msgs::Float32>(jp.name_ + std::string("_pos"), 1,
-                                                  boost::bind(&YpspurRosNode::cbAngle, this, _1, num));
+            subs_[jp.name_ + std::string("_setVel")] = compat::subscribe<std_msgs::Float32>(
+                nh_, jp.name_ + std::string("/set_vel"),
+                pnh_, jp.name_ + std::string("_setVel"), 1,
+                boost::bind(&YpspurRosNode::cbSetVel, this, _1, num));
+            subs_[jp.name_ + std::string("_setAccel")] = compat::subscribe<std_msgs::Float32>(
+                nh_, jp.name_ + std::string("/set_accel"),
+                pnh_, jp.name_ + std::string("_setAccel"), 1,
+                boost::bind(&YpspurRosNode::cbSetAccel, this, _1, num));
+            subs_[jp.name_ + std::string("_vel")] = compat::subscribe<std_msgs::Float32>(
+                nh_, jp.name_ + std::string("/vel"),
+                pnh_, jp.name_ + std::string("_vel"), 1,
+                boost::bind(&YpspurRosNode::cbVel, this, _1, num));
+            subs_[jp.name_ + std::string("_pos")] = compat::subscribe<std_msgs::Float32>(
+                nh_, jp.name_ + std::string("/pos"),
+                pnh_, jp.name_ + std::string("_pos"), 1,
+                boost::bind(&YpspurRosNode::cbAngle, this, _1, num));
           }
-          subs_[std::string("joint_position")] =
-              pnh_.subscribe<ypspur_ros::JointPositionControl>(
-                  std::string("joint_position"), 1,
-                  &YpspurRosNode::cbJointPosition, this);
+          subs_[std::string("joint_position")] = compat::subscribe(
+              nh_, std::string("joint_position"),
+              pnh_, std::string("joint_position"), 1, &YpspurRosNode::cbJointPosition, this);
           num++;
         }
       }
@@ -506,10 +526,16 @@ public:
 #endif
     if (joints_.size() > 0)
     {
-      pubs_["joint"] = pnh_.advertise<sensor_msgs::JointState>("joint", 2);
-      subs_["joint"] = pnh_.subscribe("cmd_joint", joints_.size() * 2, &YpspurRosNode::cbJoint, this);
+      pubs_["joint"] = compat::advertise<sensor_msgs::JointState>(
+          nh_, "joint_states",
+          pnh_, "joint", 2);
+      subs_["joint"] = compat::subscribe(
+          nh_, "joint_trajectory",
+          pnh_, "cmd_joint", joints_.size() * 2, &YpspurRosNode::cbJoint, this);
     }
-    subs_["control_mode"] = pnh_.subscribe("control_mode", 1, &YpspurRosNode::cbControlMode, this);
+    subs_["control_mode"] = compat::subscribe(
+        nh_, "control_mode",
+        pnh_, "control_mode", 1, &YpspurRosNode::cbControlMode, this);
     control_mode_ = ypspur_ros::ControlMode::VELOCITY;
 
     pid_ = 0;

@@ -58,6 +58,7 @@ endif()
 
 
 include_directories(
+  include
   ${catkin_INCLUDE_DIRS}
   ${ypspur_INCLUDE_DIRS}
 )

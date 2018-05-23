@@ -1,51 +1,54 @@
 # ypspur_ros node
 
+The topic names will be migrated to ROS recommended namespace model.
+Set `compatible` parameter to `1` to use new topic names.
+
 ## Subscribed topics
 
-### ~/cmd_vel [geometry_msgs/Twist]
+### ~/cmd_vel (new: cmd_vel) [geometry_msgs/Twist]
 
 Vehicle velocity control command input.
 
-### ~/cmd_joint [trajectory_msgs/JointTrajectory]
+### ~/cmd_joint (new: joint_trajectory) [trajectory_msgs/JointTrajectory]
 
 Joint trajectory control command input.
 
-### ~/control_mode [ypspur_ros/ControlMode]
+### ~/control_mode (new: control_mode) [ypspur_ros/ControlMode]
 
 Motor control mode input.
 (velocity control, torque control, passive (short circuit) brake, and open circuit mode)
 
-### ~/joint_position [ypspur_ros/JointPositionControl]
+### ~/joint_position (new: joint_position) [ypspur_ros/JointPositionControl]
 
 Joint position control command without time constraint. (Time optimal control.)
 
-### ~/dio?_output [ypspur_ros/DigitalOutput]
+### ~/dio? (new: dio?) [ypspur_ros/DigitalOutput]
 
 Digital IO output command.
-This topic name is configurable.
+This topic name is configurable through `dio?_name` parameter.
 
 ## Publihed topics
 
-### ~/odom [nav_msgs/Odometry]
+### ~/odom (new: odom) [nav_msgs/Odometry]
 
 Odometry pose.
 
-### ~/joint [sensor_msgs/JointState]
+### ~/joint (new: joint_states) [sensor_msgs/JointState]
 
 Joint status array.
 
-### ~/wrench [geometry_msgs/WrenchStamped]
+### ~/wrench (new: wrench) [geometry_msgs/WrenchStamped]
 
 Estimated vehicle force and torque.
 
-### ~/digital_input [ypspur_ros/DigitalInput]
+### ~/digital_input (new: digital_input) [ypspur_ros/DigitalInput]
 
 Digital IO status.
 
-### ~/ad/name [std_msgs/Float32]
+### ~/ad/name (new: ad/name) [std_msgs/Float32]
 
 Analog input status.
-This topic name is configurable.
+This topic name is configurable through `ad?_name` parameter.
 
 ## Parameters
 

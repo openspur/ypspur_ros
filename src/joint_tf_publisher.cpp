@@ -40,9 +40,12 @@
 #include <map>
 #include <string>
 
+#include <compatibility.h>
+
 class JointTfPublisherNode
 {
 private:
+  ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
   std::map<std::string, ros::Subscriber> subs_;
   tf::TransformBroadcaster tf_broadcaster_;
@@ -62,9 +65,12 @@ private:
 
 public:
   JointTfPublisherNode()
-    : pnh_("~")
+    : nh_()
+    , pnh_("~")
   {
-    subs_["joint"] = pnh_.subscribe("joint", 1, &JointTfPublisherNode::cbJoint, this);
+    subs_["joint"] = compat::subscribe(
+        nh_, "joint_states",
+        pnh_, "joint", 1, &JointTfPublisherNode::cbJoint, this);
   }
 };
 
