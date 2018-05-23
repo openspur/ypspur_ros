@@ -1,6 +1,6 @@
 # ypspur_ros node
 
-The topic names will be migrated to ROS recommended namespace mode.
+The topic names will be migrated to ROS recommended namespace model.
 Set `compatible` parameter to `1` to use new topic names.
 
 ## Subscribed topics
