@@ -527,7 +527,7 @@ public:
     if (joints_.size() > 0)
     {
       pubs_["joint"] = compat::advertise<sensor_msgs::JointState>(
-          nh_, "joint",
+          nh_, "joint_states",
           pnh_, "joint", 2);
       subs_["joint"] = compat::subscribe(
           nh_, "cmd_joint",
