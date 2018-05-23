@@ -9,7 +9,7 @@ Set `compatible` parameter to `1` to use new topic names.
 
 Vehicle velocity control command input.
 
-### ~/cmd_joint (new: cmd_joint) [trajectory_msgs/JointTrajectory]
+### ~/cmd_joint (new: joint_trajectory) [trajectory_msgs/JointTrajectory]
 
 Joint trajectory control command input.
 

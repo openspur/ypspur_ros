@@ -148,7 +148,7 @@ public:
         nh_, "joint_position",
         pnh_, "joint_position", 5, &ConvertNode::cbJointPosition, this);
     sub_joint_state_ = compat::subscribe(
-        nh_, "joint",
+        nh_, "joint_states",
         pnh_, "joint", 5, &ConvertNode::cbJointState, this);
     pub_joint_ = compat::advertise<trajectory_msgs::JointTrajectory>(
         nh_, "joint_trajectory",

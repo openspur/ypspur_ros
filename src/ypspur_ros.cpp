@@ -530,7 +530,7 @@ public:
           nh_, "joint_states",
           pnh_, "joint", 2);
       subs_["joint"] = compat::subscribe(
-          nh_, "cmd_joint",
+          nh_, "joint_trajectory",
           pnh_, "cmd_joint", joints_.size() * 2, &YpspurRosNode::cbJoint, this);
     }
     subs_["control_mode"] = compat::subscribe(

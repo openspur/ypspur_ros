@@ -69,7 +69,7 @@ public:
     , pnh_("~")
   {
     subs_["joint"] = compat::subscribe(
-        nh_, "joint",
+        nh_, "joint_states",
         pnh_, "joint", 1, &JointTfPublisherNode::cbJoint, this);
   }
 };
