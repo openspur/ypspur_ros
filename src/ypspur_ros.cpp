@@ -530,7 +530,7 @@ public:
           args.push_back(std::string("--msq-key"));
           args.push_back(std::to_string(key_));
           if (digital_input_enable_)
-            args.push_back(std::string("--enable_-get-digital-io"));
+            args.push_back(std::string("--enable-get-digital-io"));
           if (simulate_)
             args.push_back(std::string("--without-device"));
           if (param_file_.size() > 0)
