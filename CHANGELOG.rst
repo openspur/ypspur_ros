@@ -2,6 +2,19 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add CI build for melodic (`#37 <https://github.com/openspur/ypspur_ros/issues/37>`_)
+
+  * Also rename ci script directory
+
+* Add encrypted token for image caching (`#35 <https://github.com/openspur/ypspur_ros/issues/35>`_)
+* Migrate to ROS recommended namespace model (`#31 <https://github.com/openspur/ypspur_ros/issues/31>`_)
+* Fix --enable-get-digital-io arg to ypspur-coordinator (`#33 <https://github.com/openspur/ypspur_ros/issues/33>`_)
+* Fix installation of nodes (`#30 <https://github.com/openspur/ypspur_ros/issues/30>`_)
+* Fix variable and class naming styles (`#29 <https://github.com/openspur/ypspur_ros/issues/29>`_)
+* Contributors: Atsushi Watanabe
+
 0.1.0 (2018-04-19)
 ------------------
 * Update CI settings (`#25 <https://github.com/openspur/ypspur_ros/issues/25>`_)
