@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2018-06-07)
+------------------
 * Add CI build for melodic (`#37 <https://github.com/openspur/ypspur_ros/issues/37>`_)
 
   * Also rename ci script directory
