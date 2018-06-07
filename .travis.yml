@@ -13,16 +13,17 @@ env:
   matrix:
     - ROS_DISTRO_TARGET=kinetic
     - ROS_DISTRO_TARGET=indigo
+    - ROS_DISTRO_TARGET=melodic
 branches:
   only:
     - master
 
 before_install:
-  - .travis.scripts/load_cache.sh
+  - .travis/load_cache.sh
 
 install: true
 
 script:
   - docker build --cache-from ${DOCKER_CACHE_REGISTRY}:${ROS_DISTRO_TARGET} -t ${DOCKER_CACHE_TARGET}:${ROS_DISTRO_TARGET} -f Dockerfile.${ROS_DISTRO_TARGET} --pull=true ${TRAVIS_BUILD_DIR}
-  - docker run --rm -it  -e TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} -e TRAVIS_PULL_REQUEST_SLUG=${TRAVIS_PULL_REQUEST_SLUG} -e TRAVIS_BOT_GITHUB_TOKEN=${TRAVIS_BOT_GITHUB_TOKEN} -e PACKAGE_NAME=${PACKAGE_NAME} ${DOCKER_CACHE_TARGET}:${ROS_DISTRO_TARGET} /catkin_ws/src/${PACKAGE_NAME}/.travis.scripts/test.sh
-  - .travis.scripts/save_cache.sh
+  - docker run --rm -it  -e TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} -e TRAVIS_PULL_REQUEST_SLUG=${TRAVIS_PULL_REQUEST_SLUG} -e TRAVIS_BOT_GITHUB_TOKEN=${TRAVIS_BOT_GITHUB_TOKEN} -e PACKAGE_NAME=${PACKAGE_NAME} ${DOCKER_CACHE_TARGET}:${ROS_DISTRO_TARGET} /catkin_ws/src/${PACKAGE_NAME}/.travis/test.sh
+  - .travis/save_cache.sh
