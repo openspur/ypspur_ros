@@ -44,7 +44,7 @@ if [ catkin_test_results ];
 then
   result_text="
 \`\`\`
-`catkin_test_results --all || true`
+`catkin_test_results --all | grep -v Skipping || true`
 \`\`\`
 "
 else
