@@ -3,16 +3,14 @@ project(ypspur_ros)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  rospy
-  roslint
-  rostest
+  message_generation
+
   geometry_msgs
-  sensor_msgs
   nav_msgs
+  sensor_msgs
   std_msgs
   tf
   trajectory_msgs
-  message_generation
 )
 
 add_message_files(
@@ -29,10 +27,11 @@ generate_messages(
 )
 
 catkin_package(CATKIN_DEPENDS
+  roscpp
+
   geometry_msgs
   nav_msgs
-  roscpp
-  rospy
+  sensor_msgs
   std_msgs
   tf
   trajectory_msgs
@@ -95,7 +94,9 @@ install(TARGETS
 ## Testing ##
 #############
 
-roslint_cpp()
 if(CATKIN_ENABLE_TESTING)
+  find_package(rostest REQUIRED)
+  find_package(roslint REQUIRED)
+  roslint_cpp()
   roslint_add_test()
 endif()
