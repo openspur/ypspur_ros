@@ -29,6 +29,7 @@
 
 #include <ros/ros.h>
 
+#include <diagnostic_msgs/DiagnosticArray.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/WrenchStamped.h>
 #include <nav_msgs/Odometry.h>
@@ -538,6 +539,9 @@ public:
         pnh_, "control_mode", 1, &YpspurRosNode::cbControlMode, this);
     control_mode_ = ypspur_ros::ControlMode::VELOCITY;
 
+    pubs_["diag"] = nh_.advertise<diagnostic_msgs::DiagnosticArray>(
+        "/diagnostics", 1);
+
     pid_ = 0;
     for (int i = 0; i < 2; i++)
     {
@@ -645,6 +649,9 @@ public:
   }
   void spin()
   {
+    int device_error_state = 0;
+    ros::Time device_error_state_time(0);
+
     geometry_msgs::TransformStamped odom_trans;
     odom_trans.header.frame_id = frames_["odom"];
     odom_trans.child_frame_id = frames_["base_link"];
@@ -1095,7 +1102,71 @@ public:
         }
       }
 
-      if (YP::YP_get_error_state())
+      const int connection_error = YP::YP_get_error_state();
+      {
+#if (YPSPUR_GET_DEVICE_ERROR_STATE_SUPPORT)
+        int err;
+        const double t = YP::YP_get_device_error_state(0, &err);
+        device_error_state |= err;
+#else
+        ROS_WARN_ONCE(
+            "This version of yp-spur doesn't provide device error status. "
+            "Consider building ypspur_ros with latest yp-spur.");
+        const double t = now.toSec();
+#endif
+        if (device_error_state_time + ros::Duration(1.0) < now)
+        {
+          device_error_state_time = now;
+          diagnostic_msgs::DiagnosticArray msg;
+          msg.header.stamp = now;
+          msg.status.resize(1);
+          msg.status[0].name = "YP-Spur Motor Controller";
+          msg.status[0].hardware_id = "not provided";
+          if (device_error_state == 0 || connection_error == 0)
+          {
+            if (t == 0)
+            {
+              msg.status[0].level = diagnostic_msgs::DiagnosticStatus::OK;
+              msg.status[0].message = "Motor controller doesn't "
+                                      "provide device error state.";
+            }
+            else
+            {
+              if (ros::Time(t) < now - ros::Duration(1.0))
+              {
+                msg.status[0].level = diagnostic_msgs::DiagnosticStatus::ERROR;
+                msg.status[0].message = "Motor controller doesn't "
+                                        "update latest device error state.";
+              }
+              else
+              {
+                msg.status[0].level = diagnostic_msgs::DiagnosticStatus::OK;
+                msg.status[0].message = "Motor controller is running without error.";
+              }
+            }
+          }
+          else
+          {
+            msg.status[0].level = diagnostic_msgs::DiagnosticStatus::ERROR;
+            if (device_error_state)
+              msg.status[0].message +=
+                  "Connection to ypspur-coordinator is down.";
+            if (connection_error)
+              msg.status[0].message +=
+                  "Motor controller reported error id " +
+                  std::to_string(device_error_state) + ".";
+          }
+          msg.status[0].values.resize(2);
+          msg.status[0].values[0].key = "connection_error";
+          msg.status[0].values[0].value = std::to_string(connection_error);
+          msg.status[0].values[1].key = "device_error";
+          msg.status[0].values[1].value = std::to_string(device_error_state);
+
+          pubs_["diag"].publish(msg);
+          device_error_state = 0;
+        }
+      }
+      if (connection_error)
       {
         ROS_ERROR("ypspur-coordinator is not active");
         break;

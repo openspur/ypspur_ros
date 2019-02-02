@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   message_generation
 
+  diagnostic_msgs
   geometry_msgs
   nav_msgs
   sensor_msgs
@@ -29,6 +30,7 @@ generate_messages(
 catkin_package(CATKIN_DEPENDS
   roscpp
 
+  diagnostic_msgs
   geometry_msgs
   nav_msgs
   sensor_msgs
