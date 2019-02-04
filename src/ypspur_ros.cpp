@@ -357,7 +357,6 @@ private:
     ROS_WARN_ONCE(
         "This version of yp-spur doesn't provide device error status. "
         "Consider building ypspur_ros with latest yp-spur.");
-    t = now.toSec();
 #endif
     if (device_error_state_time_ + ros::Duration(1.0) < now || connection_down)
     {
