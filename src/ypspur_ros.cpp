@@ -365,7 +365,7 @@ private:
       msg.header.stamp = now;
       msg.status.resize(1);
       msg.status[0].name = "YP-Spur Motor Controller";
-      msg.status[0].hardware_id = "not provided";
+      msg.status[0].hardware_id = "ipc-key" + std::to_string(key_);
       if (device_error_state_ == 0 && connection_error == 0)
       {
         if (t == 0)
