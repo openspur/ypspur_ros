@@ -151,6 +151,7 @@ private:
   std::map<int, ros::Time> dio_revert_;
 
   int device_error_state_;
+  int device_error_state_prev_;
   ros::Time device_error_state_time_;
 
   geometry_msgs::Twist cmd_vel_;
@@ -358,9 +359,12 @@ private:
         "This version of yp-spur doesn't provide device error status. "
         "Consider building ypspur_ros with latest yp-spur.");
 #endif
-    if (device_error_state_time_ + ros::Duration(1.0) < now || connection_down)
+    if (device_error_state_time_ + ros::Duration(1.0) < now || connection_down ||
+        device_error_state_ != device_error_state_prev_)
     {
       device_error_state_time_ = now;
+      device_error_state_prev_ = device_error_state_;
+
       diagnostic_msgs::DiagnosticArray msg;
       msg.header.stamp = now;
       msg.status.resize(1);
@@ -417,6 +421,7 @@ public:
     : nh_()
     , pnh_("~")
     , device_error_state_(0)
+    , device_error_state_prev_(0)
     , device_error_state_time_(0)
   {
     compat::checkCompatMode();
