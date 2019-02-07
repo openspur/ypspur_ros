@@ -29,6 +29,7 @@
 
 #include <ros/ros.h>
 
+#include <diagnostic_msgs/DiagnosticArray.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/WrenchStamped.h>
 #include <nav_msgs/Odometry.h>
@@ -148,6 +149,10 @@ private:
   unsigned int dio_dir_default_;
   const int dio_num_ = 8;
   std::map<int, ros::Time> dio_revert_;
+
+  int device_error_state_;
+  int device_error_state_prev_;
+  ros::Time device_error_state_time_;
 
   geometry_msgs::Twist cmd_vel_;
 
@@ -339,11 +344,85 @@ private:
 
     dio_revert_[id_] = ros::Time(0);
   }
+  void updateDiagnostics(const ros::Time &now, const bool connection_down = false)
+  {
+    const int connection_error = connection_down ? 1 : YP::YP_get_error_state();
+    double t = 0;
+
+#if (YPSPUR_GET_DEVICE_ERROR_STATE_SUPPORT)
+    int err = 0;
+    if (!connection_error)
+      t = YP::YP_get_device_error_state(0, &err);
+    device_error_state_ |= err;
+#else
+    ROS_WARN_ONCE(
+        "This version of yp-spur doesn't provide device error status. "
+        "Consider building ypspur_ros with latest yp-spur.");
+#endif
+    if (device_error_state_time_ + ros::Duration(1.0) < now || connection_down ||
+        device_error_state_ != device_error_state_prev_)
+    {
+      device_error_state_time_ = now;
+      device_error_state_prev_ = device_error_state_;
+
+      diagnostic_msgs::DiagnosticArray msg;
+      msg.header.stamp = now;
+      msg.status.resize(1);
+      msg.status[0].name = "YP-Spur Motor Controller";
+      msg.status[0].hardware_id = "ipc-key" + std::to_string(key_);
+      if (device_error_state_ == 0 && connection_error == 0)
+      {
+        if (t == 0)
+        {
+          msg.status[0].level = diagnostic_msgs::DiagnosticStatus::OK;
+          msg.status[0].message = "Motor controller doesn't "
+                                  "provide device error state.";
+        }
+        else
+        {
+          if (ros::Time(t) < now - ros::Duration(1.0))
+          {
+            msg.status[0].level = diagnostic_msgs::DiagnosticStatus::ERROR;
+            msg.status[0].message = "Motor controller doesn't "
+                                    "update latest device error state.";
+          }
+          else
+          {
+            msg.status[0].level = diagnostic_msgs::DiagnosticStatus::OK;
+            msg.status[0].message = "Motor controller is running without error.";
+          }
+        }
+      }
+      else
+      {
+        msg.status[0].level = diagnostic_msgs::DiagnosticStatus::ERROR;
+        if (connection_error)
+          msg.status[0].message +=
+              "Connection to ypspur-coordinator is down.";
+        if (device_error_state_)
+          msg.status[0].message +=
+              std::string((msg.status[0].message.size() > 0 ? " " : "")) +
+              "Motor controller reported error id " +
+              std::to_string(device_error_state_) + ".";
+      }
+      msg.status[0].values.resize(2);
+      msg.status[0].values[0].key = "connection_error";
+      msg.status[0].values[0].value = std::to_string(connection_error);
+      msg.status[0].values[1].key = "device_error";
+      msg.status[0].values[1].value = std::to_string(device_error_state_);
+
+      pubs_["diag"].publish(msg);
+      device_error_state_ = 0;
+    }
+  }
 
 public:
   YpspurRosNode()
     : nh_()
     , pnh_("~")
+    , device_error_state_(0)
+    , device_error_state_prev_(0)
+    , device_error_state_time_(0)
   {
     compat::checkCompatMode();
 
@@ -537,6 +616,9 @@ public:
         nh_, "control_mode",
         pnh_, "control_mode", 1, &YpspurRosNode::cbControlMode, this);
     control_mode_ = ypspur_ros::ControlMode::VELOCITY;
+
+    pubs_["diag"] = nh_.advertise<diagnostic_msgs::DiagnosticArray>(
+        "/diagnostics", 1);
 
     pid_ = 0;
     for (int i = 0; i < 2; i++)
@@ -1094,6 +1176,7 @@ public:
           }
         }
       }
+      updateDiagnostics(now);
 
       if (YP::YP_get_error_state())
       {
@@ -1121,6 +1204,7 @@ public:
           {
             ROS_ERROR("ypspur-coordinator dead");
           }
+          updateDiagnostics(now, true);
         }
         break;
       }
