@@ -656,11 +656,16 @@ public:
           ROS_ERROR("failed to start ypspur-coordinator");
           throw(std::string("failed to start ypspur-coordinator"));
         }
-        sleep(2);
-        if (YP::YPSpur_initex(key_) < 0)
+        for (int i = 10; i >= 0; i--)
         {
-          ROS_ERROR("failed to init libypspur");
-          throw(std::string("failed to init libypspur"));
+          if (i == 0)
+          {
+            ROS_ERROR("failed to init libypspur");
+            throw(std::string("failed to init libypspur"));
+          }
+          ros::Duration(1).sleep();
+          if (YP::YPSpur_initex(key_) >= 0)
+            break;
         }
       }
       double test_v, test_w;
