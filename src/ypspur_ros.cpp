@@ -1230,14 +1230,16 @@ public:
       }
     }
     ROS_INFO("ypspur_ros main loop terminated");
-    ros::shutdown();
-    ros::spin();
     if (pid_ > 0)
     {
       ROS_INFO("killing ypspur-coordinator (%d)", (int)pid_);
       kill(pid_, SIGINT);
-      sleep(2);
+      int status;
+      waitpid(pid_, &status, WNOHANG);
+      ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
     }
+    ros::shutdown();
+    ros::spin();
   }
 };
 
