@@ -647,12 +647,16 @@ public:
             args.push_back(param_file_);
           }
 
-          const char **argv = new const char *[args.size() + 1];
+          char **argv = new char *[args.size() + 1];
           for (unsigned int i = 0; i < args.size(); i++)
-            argv[i] = args[i].c_str();
+          {
+            argv[i] = new char[args[i].size() + 1];
+            memcpy(argv[i], args[i].c_str(), args[i].size());
+            argv[i][args[i].size()] = 0;
+          }
           argv[args.size()] = nullptr;
 
-          execvp(ypspur_bin_.c_str(), const_cast<char **>(argv));
+          execvp(ypspur_bin_.c_str(), argv);
           ROS_ERROR("failed to start ypspur-coordinator");
           throw(std::string("failed to start ypspur-coordinator"));
         }
