@@ -1246,6 +1246,7 @@ int main(int argc, char *argv[])
   }
   catch (std::string e)
   {
+    return -1;
   }
 
   return 0;
