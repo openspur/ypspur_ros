@@ -667,22 +667,21 @@ public:
             ROS_ERROR("failed to init libypspur");
             throw(std::string("failed to init libypspur"));
           }
-          ros::Duration(1).sleep();
+          ros::WallDuration(1).sleep();
           if (YP::YPSpur_initex(key_) >= 0)
             break;
         }
       }
-      double test_v, test_w;
       double ret;
       boost::atomic<bool> done(false);
-      auto get_vel_thread = [&test_v, &test_w, &ret, &done]
+      auto get_vel_thread = [&ret, &done]
       {
+        double test_v, test_w;
         ret = YP::YPSpur_get_vel(&test_v, &test_w);
         done = true;
       };
       boost::thread spur_test = boost::thread(get_vel_thread);
-      boost::chrono::milliseconds span(100);
-      boost::this_thread::sleep_for(span);
+      ros::WallDuration(0.1).sleep();
       if (!done)
       {
         // There is no way to kill thread safely in C++11
