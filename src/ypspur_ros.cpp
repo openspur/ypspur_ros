@@ -661,6 +661,7 @@ public:
             argv[i][args[i].size()] = 0;
           }
           argv[args.size()] = nullptr;
+          ROS_INFO("execute %s", ypspur_bin_.c_str());
 
           execvp(ypspur_bin_.c_str(), argv);
           ROS_ERROR("failed to start ypspur-coordinator");
