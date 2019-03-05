@@ -628,6 +628,36 @@ public:
     {
       if (i > 0 || YP::YPSpur_initex(key_) < 0)
       {
+        std::vector<std::string> args;
+        args.push_back(ypspur_bin_);
+        args.push_back(std::string("-d"));
+        args.push_back(port_);
+        args.push_back(std::string("--admask"));
+        args.push_back(ad_mask);
+        args.push_back(std::string("--msq-key"));
+        args.push_back(std::to_string(key_));
+        if (digital_input_enable_)
+          args.push_back(std::string("--enable-get-digital-io"));
+        if (simulate_)
+          args.push_back(std::string("--without-device"));
+        if (param_file_.size() > 0)
+        {
+          args.push_back(std::string("-p"));
+          args.push_back(param_file_);
+        }
+
+        char **argv = new char *[args.size() + 1];
+        for (unsigned int i = 0; i < args.size(); i++)
+        {
+          argv[i] = new char[args[i].size() + 1];
+          memcpy(argv[i], args[i].c_str(), args[i].size());
+          argv[i][args[i].size()] = 0;
+        }
+        argv[args.size()] = nullptr;
+
+        int msq = msgget(key_, 0666 | IPC_CREAT);
+        msgctl(msq, IPC_RMID, nullptr);
+
         ROS_WARN("launching ypspur-coordinator");
         pid_ = fork();
         if (pid_ == -1)
@@ -638,37 +668,6 @@ public:
         }
         else if (pid_ == 0)
         {
-          std::vector<std::string> args;
-          args.push_back(ypspur_bin_);
-          args.push_back(std::string("-d"));
-          args.push_back(port_);
-          args.push_back(std::string("--admask"));
-          args.push_back(ad_mask);
-          args.push_back(std::string("--msq-key"));
-          args.push_back(std::to_string(key_));
-          if (digital_input_enable_)
-            args.push_back(std::string("--enable-get-digital-io"));
-          if (simulate_)
-            args.push_back(std::string("--without-device"));
-          if (param_file_.size() > 0)
-          {
-            args.push_back(std::string("-p"));
-            args.push_back(param_file_);
-          }
-
-          int msq = msgget(key_, 0666 | IPC_CREAT);
-          msgctl(msq, IPC_RMID, nullptr);
-
-          char **argv = new char *[args.size() + 1];
-          for (unsigned int i = 0; i < args.size(); i++)
-          {
-            argv[i] = new char[args[i].size() + 1];
-            memcpy(argv[i], args[i].c_str(), args[i].size());
-            argv[i][args[i].size()] = 0;
-          }
-          argv[args.size()] = nullptr;
-          ROS_INFO("execute %s", ypspur_bin_.c_str());
-
           execvp(ypspur_bin_.c_str(), argv);
           ROS_ERROR("failed to start ypspur-coordinator");
           throw(std::string("failed to start ypspur-coordinator"));
