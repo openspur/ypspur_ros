@@ -744,6 +744,15 @@ public:
   }
   ~YpspurRosNode()
   {
+    if (pid_ > 0)
+    {
+      ROS_INFO("killing ypspur-coordinator (%d)", (int)pid_);
+      kill(pid_, SIGINT);
+      int status;
+      waitpid(pid_, &status, WNOHANG);
+      ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
+    }
+    ros::shutdown();
   }
   void spin()
   {
@@ -1230,16 +1239,6 @@ public:
       }
     }
     ROS_INFO("ypspur_ros main loop terminated");
-    if (pid_ > 0)
-    {
-      ROS_INFO("killing ypspur-coordinator (%d)", (int)pid_);
-      kill(pid_, SIGINT);
-      int status;
-      waitpid(pid_, &status, WNOHANG);
-      ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
-    }
-    ros::shutdown();
-    ros::spin();
   }
 };
 
