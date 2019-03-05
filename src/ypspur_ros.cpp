@@ -47,6 +47,7 @@
 #include <tf/transform_listener.h>
 
 #include <signal.h>
+#include <string.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/types.h>
@@ -629,7 +630,13 @@ public:
       {
         ROS_WARN("launching ypspur-coordinator");
         pid_ = fork();
-        if (pid_ == 0)
+        if (pid_ == -1)
+        {
+          const int err = errno;
+          ROS_ERROR("failed to fork process: %s", strerror(err));
+          throw(std::string("failed to fork process"));
+        }
+        else if (pid_ == 0)
         {
           std::vector<std::string> args;
           args.push_back(ypspur_bin_);
