@@ -656,8 +656,7 @@ public:
             args.push_back(param_file_);
           }
 
-          int msq;
-          msq = msgget(key_, 0666 | IPC_CREAT);
+          int msq = msgget(key_, 0666 | IPC_CREAT);
           msgctl(msq, IPC_RMID, nullptr);
 
           char **argv = new char *[args.size() + 1];
