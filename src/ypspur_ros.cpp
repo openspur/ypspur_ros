@@ -47,6 +47,8 @@
 #include <tf/transform_listener.h>
 
 #include <signal.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -646,6 +648,10 @@ public:
             args.push_back(std::string("-p"));
             args.push_back(param_file_);
           }
+
+          int msq;
+          msq = msgget(key_, 0666 | IPC_CREAT);
+          msgctl(msq, IPC_RMID, nullptr);
 
           char **argv = new char *[args.size() + 1];
           for (unsigned int i = 0; i < args.size(); i++)
