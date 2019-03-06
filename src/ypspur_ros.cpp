@@ -674,7 +674,8 @@ public:
         }
         for (int i = 4; i >= 0; i--)
         {
-          if (i == 0)
+          int status;
+          if (i == 0 || waitpid(pid_, &status, WNOHANG) == pid_)
           {
             ROS_ERROR("failed to init libypspur");
             throw(std::string("failed to init libypspur"));
