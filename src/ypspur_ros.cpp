@@ -672,7 +672,7 @@ public:
           ROS_ERROR("failed to start ypspur-coordinator");
           throw(std::string("failed to start ypspur-coordinator"));
         }
-        for (int i = 10; i >= 0; i--)
+        for (int i = 4; i >= 0; i--)
         {
           if (i == 0)
           {
