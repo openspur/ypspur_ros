@@ -675,7 +675,12 @@ public:
         for (int i = 4; i >= 0; i--)
         {
           int status;
-          if (i == 0 || waitpid(pid_, &status, WNOHANG) == pid_)
+          if (waitpid(pid_, &status, WNOHANG) == pid_)
+          {
+            ROS_ERROR("ypspur-coordinator dead immediately");
+            throw(std::string("ypspur-coordinator dead immediately"));
+          }
+          else if (i == 0)
           {
             ROS_ERROR("failed to init libypspur");
             throw(std::string("failed to init libypspur"));
