@@ -628,14 +628,13 @@ public:
     {
       if (i > 0 || YP::YPSpur_initex(key_) < 0)
       {
-        std::vector<std::string> args;
-        args.push_back(ypspur_bin_);
-        args.push_back(std::string("-d"));
-        args.push_back(port_);
-        args.push_back(std::string("--admask"));
-        args.push_back(ad_mask);
-        args.push_back(std::string("--msq-key"));
-        args.push_back(std::to_string(key_));
+        std::vector<std::string> args =
+            {
+              ypspur_bin_,
+              "-d", port_,
+              "--admask", ad_mask,
+              "--msq-key", std::to_string(key_)
+            };
         if (digital_input_enable_)
           args.push_back(std::string("--enable-get-digital-io"));
         if (simulate_)
@@ -672,6 +671,11 @@ public:
           ROS_ERROR("failed to start ypspur-coordinator");
           throw(std::string("failed to start ypspur-coordinator"));
         }
+
+        for (unsigned int i = 0; i < args.size(); i++)
+          delete argv[i];
+        delete argv;
+
         for (int i = 4; i >= 0; i--)
         {
           int status;
