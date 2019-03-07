@@ -47,6 +47,9 @@
 #include <tf/transform_listener.h>
 
 #include <signal.h>
+#include <string.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -625,55 +628,82 @@ public:
     {
       if (i > 0 || YP::YPSpur_initex(key_) < 0)
       {
+        std::vector<std::string> args =
+            {
+              ypspur_bin_,
+              "-d", port_,
+              "--admask", ad_mask,
+              "--msq-key", std::to_string(key_)
+            };
+        if (digital_input_enable_)
+          args.push_back(std::string("--enable-get-digital-io"));
+        if (simulate_)
+          args.push_back(std::string("--without-device"));
+        if (param_file_.size() > 0)
+        {
+          args.push_back(std::string("-p"));
+          args.push_back(param_file_);
+        }
+
+        char **argv = new char *[args.size() + 1];
+        for (unsigned int i = 0; i < args.size(); i++)
+        {
+          argv[i] = new char[args[i].size() + 1];
+          memcpy(argv[i], args[i].c_str(), args[i].size());
+          argv[i][args[i].size()] = 0;
+        }
+        argv[args.size()] = nullptr;
+
+        int msq = msgget(key_, 0666 | IPC_CREAT);
+        msgctl(msq, IPC_RMID, nullptr);
+
         ROS_WARN("launching ypspur-coordinator");
         pid_ = fork();
-        if (pid_ == 0)
+        if (pid_ == -1)
         {
-          std::vector<std::string> args;
-          args.push_back(ypspur_bin_);
-          args.push_back(std::string("-d"));
-          args.push_back(port_);
-          args.push_back(std::string("--admask"));
-          args.push_back(ad_mask);
-          args.push_back(std::string("--msq-key"));
-          args.push_back(std::to_string(key_));
-          if (digital_input_enable_)
-            args.push_back(std::string("--enable-get-digital-io"));
-          if (simulate_)
-            args.push_back(std::string("--without-device"));
-          if (param_file_.size() > 0)
-          {
-            args.push_back(std::string("-p"));
-            args.push_back(param_file_);
-          }
-
-          const char **argv = new const char *[args.size() + 1];
-          for (unsigned int i = 0; i < args.size(); i++)
-            argv[i] = args[i].c_str();
-          argv[args.size()] = nullptr;
-
-          execvp(ypspur_bin_.c_str(), const_cast<char **>(argv));
+          const int err = errno;
+          ROS_ERROR("failed to fork process: %s", strerror(err));
+          throw(std::string("failed to fork process"));
+        }
+        else if (pid_ == 0)
+        {
+          execvp(ypspur_bin_.c_str(), argv);
           ROS_ERROR("failed to start ypspur-coordinator");
           throw(std::string("failed to start ypspur-coordinator"));
         }
-        sleep(2);
-        if (YP::YPSpur_initex(key_) < 0)
+
+        for (unsigned int i = 0; i < args.size(); i++)
+          delete argv[i];
+        delete argv;
+
+        for (int i = 4; i >= 0; i--)
         {
-          ROS_ERROR("failed to init libypspur");
-          throw(std::string("failed to init libypspur"));
+          int status;
+          if (waitpid(pid_, &status, WNOHANG) == pid_)
+          {
+            ROS_ERROR("ypspur-coordinator dead immediately");
+            throw(std::string("ypspur-coordinator dead immediately"));
+          }
+          else if (i == 0)
+          {
+            ROS_ERROR("failed to init libypspur");
+            throw(std::string("failed to init libypspur"));
+          }
+          ros::WallDuration(1).sleep();
+          if (YP::YPSpur_initex(key_) >= 0)
+            break;
         }
       }
-      double test_v, test_w;
       double ret;
       boost::atomic<bool> done(false);
-      auto get_vel_thread = [&test_v, &test_w, &ret, &done]
+      auto get_vel_thread = [&ret, &done]
       {
+        double test_v, test_w;
         ret = YP::YPSpur_get_vel(&test_v, &test_w);
         done = true;
       };
       boost::thread spur_test = boost::thread(get_vel_thread);
-      boost::chrono::milliseconds span(100);
-      boost::this_thread::sleep_for(span);
+      ros::WallDuration(0.1).sleep();
       if (!done)
       {
         // There is no way to kill thread safely in C++11
@@ -724,6 +754,15 @@ public:
   }
   ~YpspurRosNode()
   {
+    if (pid_ > 0)
+    {
+      ROS_INFO("killing ypspur-coordinator (%d)", (int)pid_);
+      kill(pid_, SIGINT);
+      int status;
+      waitpid(pid_, &status, 0);
+      ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
+    }
+    ros::shutdown();
   }
   void spin()
   {
@@ -1210,14 +1249,6 @@ public:
       }
     }
     ROS_INFO("ypspur_ros main loop terminated");
-    ros::shutdown();
-    ros::spin();
-    if (pid_ > 0)
-    {
-      ROS_INFO("killing ypspur-coordinator (%d)", (int)pid_);
-      kill(pid_, SIGINT);
-      sleep(2);
-    }
   }
 };
 
@@ -1232,6 +1263,7 @@ int main(int argc, char *argv[])
   }
   catch (std::string e)
   {
+    return -1;
   }
 
   return 0;
