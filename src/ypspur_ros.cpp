@@ -759,7 +759,7 @@ public:
       ROS_INFO("killing ypspur-coordinator (%d)", (int)pid_);
       kill(pid_, SIGINT);
       int status;
-      waitpid(pid_, &status, WNOHANG);
+      waitpid(pid_, &status, 0);
       ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
     }
     ros::shutdown();
