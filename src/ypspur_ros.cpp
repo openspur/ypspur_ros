@@ -232,6 +232,8 @@ private:
 
       if (cmd_joint.points.size() != msg->points.size())
         return;
+
+      new_cmd_joints[name] = cmd_joint;
     }
     // Apply if all JointTrajectoryPoints are valid
     for (auto &new_cmd_joint : new_cmd_joints)
