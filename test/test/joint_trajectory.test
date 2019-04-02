@@ -9,6 +9,6 @@
     <param name="simulate_control" value="true" />
     <param name="param_file" value="$(find ypspur_ros)/test/config/test.param" />
     <param name="joint0_enable" value="true" />
-    <param name="hz" value="50.0" />
+    <param name="hz" value="20.0" />
   </node>
 </launch>

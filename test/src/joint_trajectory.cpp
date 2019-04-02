@@ -37,8 +37,8 @@
 
 TEST(JointTrajectory, CommandValidation)
 {
-  ros::WallDuration wait(0.002);
-  ros::Duration clock_step(0.02);
+  ros::WallDuration wait(0.005);
+  ros::Duration clock_step(0.05);
 
   ros::NodeHandle nh;
   ros::Publisher pub_cmd =
@@ -59,7 +59,7 @@ TEST(JointTrajectory, CommandValidation)
   clock.clock.fromNSec(ros::WallTime::now().toNSec());
   pub_clock.publish(clock);
 
-  for (int i = 0; i < 100; ++i)
+  for (int i = 0; i < 50; ++i)
   {
     wait.sleep();
     ros::spinOnce();
@@ -81,7 +81,7 @@ TEST(JointTrajectory, CommandValidation)
   pub_cmd.publish(cmd);
   wait.sleep();
 
-  for (int i = 0; i < 100; ++i)
+  for (int i = 0; i < 50; ++i)
   {
     clock.clock += clock_step;
     pub_clock.publish(clock);
@@ -103,7 +103,7 @@ TEST(JointTrajectory, CommandValidation)
   cmd.points[0].velocities[0] = 0.0;
   pub_cmd.publish(cmd);
   wait.sleep();
-  for (int i = 0; i < 200; ++i)
+  for (int i = 0; i < 50; ++i)
   {
     clock.clock += clock_step;
     pub_clock.publish(clock);
@@ -119,7 +119,7 @@ TEST(JointTrajectory, CommandValidation)
   cmd.points[0].velocities[0] = 1.0;
   pub_cmd.publish(cmd);
   wait.sleep();
-  for (int i = 0; i < 100; ++i)
+  for (int i = 0; i < 50; ++i)
   {
     clock.clock += clock_step;
     pub_clock.publish(clock);
