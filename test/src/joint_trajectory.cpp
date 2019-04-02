@@ -90,7 +90,7 @@ TEST(JointTrajectory, CommandValidation)
   }
 
   // Valid command must not be ignored
-  ASSERT_TRUE(joint_states);
+  ASSERT_TRUE(static_cast<bool>(joint_states));
   ASSERT_EQ(joint_states->name.size(), 1);
   ASSERT_EQ(joint_states->name[0], "joint0");
   ASSERT_EQ(joint_states->velocity.size(), 1);
