@@ -59,7 +59,8 @@ TEST(JointTrajectory, CommandValidation)
   clock.clock.fromNSec(ros::WallTime::now().toNSec());
   pub_clock.publish(clock);
 
-  for (int i = 0; i < 50; ++i)
+  // Wait until ypspur_ros
+  for (int i = 0; i < 1000; ++i)
   {
     wait.sleep();
     ros::spinOnce();
