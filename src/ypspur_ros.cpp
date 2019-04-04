@@ -57,6 +57,8 @@
 #include <boost/chrono.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/future.hpp>
+
+#include <exception>
 #include <map>
 #include <string>
 #include <vector>
@@ -568,8 +570,7 @@ public:
     }
     else
     {
-      ROS_ERROR("unknown mode '%s'", mode_name.c_str());
-      throw(std::string("unknown mode '") + mode_name + std::string("'"));
+      throw(std::runtime_error("unknown mode: " + mode_name));
     }
 
     int max_joint_id;
@@ -625,8 +626,7 @@ public:
     {
       if (!(joints_.size() == 2 && joints_[0].id_ == 0 && joints_[1].id_ == 1))
       {
-        ROS_ERROR("This version of yp-spur only supports [joint0_enable: true, joint1_enable: true]");
-        throw(std::string("joint configuration error"));
+        throw(std::runtime_error("This version of yp-spur only supports [joint0_enable: true, joint1_enable: true]"));
       }
     }
 #endif
@@ -686,14 +686,12 @@ public:
         if (pid_ == -1)
         {
           const int err = errno;
-          ROS_ERROR("failed to fork process: %s", strerror(err));
-          throw(std::string("failed to fork process"));
+          throw(std::runtime_error(std::string("failed to fork process: ") + strerror(err)));
         }
         else if (pid_ == 0)
         {
           execvp(ypspur_bin_.c_str(), argv);
-          ROS_ERROR("failed to start ypspur-coordinator");
-          throw(std::string("failed to start ypspur-coordinator"));
+          throw(std::runtime_error("failed to start ypspur-coordinator"));
         }
 
         for (unsigned int i = 0; i < args.size(); i++)
@@ -705,13 +703,11 @@ public:
           int status;
           if (waitpid(pid_, &status, WNOHANG) == pid_)
           {
-            ROS_ERROR("ypspur-coordinator dead immediately");
-            throw(std::string("ypspur-coordinator dead immediately"));
+            throw(std::runtime_error("ypspur-coordinator dead immediately"));
           }
           else if (i == 0)
           {
-            ROS_ERROR("failed to init libypspur");
-            throw(std::string("failed to init libypspur"));
+            throw(std::runtime_error("failed to init libypspur"));
           }
           ros::WallDuration(1).sleep();
           if (YP::YPSpur_initex(key_) >= 0)
@@ -1285,8 +1281,9 @@ int main(int argc, char *argv[])
     YpspurRosNode yr;
     yr.spin();
   }
-  catch (std::string e)
+  catch (std::runtime_error &e)
   {
+    ROS_ERROR("%s", e.what());
     return -1;
   }
 
