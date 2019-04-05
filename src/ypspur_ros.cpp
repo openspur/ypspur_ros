@@ -191,21 +191,33 @@ private:
 #if !(YPSPUR_JOINT_ANG_VEL_SUPPORT)
     ROS_ERROR("JointTrajectory command is not available on this YP-Spur version");
 #endif
+    const ros::Time now = ros::Time::now();
+
     std_msgs::Header header = msg->header;
     if (header.stamp == ros::Time(0))
-      header.stamp = ros::Time::now();
-    size_t i = 0;
-    for (auto &name : msg->joint_names)
-    {
-      auto &j = joints_[joint_name_to_num_[name]];
-      j.control_ = JointParams::TRAJECTORY;
+      header.stamp = now;
 
-      j.cmd_joint_.header = header;
-      j.cmd_joint_.joint_names.resize(1);
-      j.cmd_joint_.joint_names[0] = name;
-      j.cmd_joint_.points.clear();
+    std::map<std::string, trajectory_msgs::JointTrajectory> new_cmd_joints;
+    size_t i = 0;
+    for (const std::string &name : msg->joint_names)
+    {
+      trajectory_msgs::JointTrajectory cmd_joint;
+      cmd_joint.header = header;
+      cmd_joint.joint_names.resize(1);
+      cmd_joint.joint_names[0] = name;
+      cmd_joint.points.clear();
+      std::string err_msg;
       for (auto &cmd : msg->points)
       {
+        if (header.stamp + cmd.time_from_start < now)
+        {
+          ROS_ERROR(
+              "Ignored outdated JointTrajectory command "
+              "(joint: %s, now: %0.6lf, stamp: %0.6lf, time_from_start: %0.6lf)",
+              name.c_str(), now.toSec(), header.stamp.toSec(), cmd.time_from_start.toSec());
+          break;
+        }
+
         trajectory_msgs::JointTrajectoryPoint p;
         p.time_from_start = cmd.time_from_start;
         p.positions.resize(1);
@@ -216,9 +228,21 @@ private:
           p.velocities[0] = cmd.velocities[i];
         p.positions[0] = cmd.positions[i];
 
-        j.cmd_joint_.points.push_back(p);
+        cmd_joint.points.push_back(p);
       }
       i++;
+
+      if (cmd_joint.points.size() != msg->points.size())
+        return;
+
+      new_cmd_joints[name] = cmd_joint;
+    }
+    // Apply if all JointTrajectoryPoints are valid
+    for (auto &new_cmd_joint : new_cmd_joints)
+    {
+      const int joint_num = joint_name_to_num_[new_cmd_joint.first];
+      joints_[joint_num].control_ = JointParams::TRAJECTORY;
+      joints_[joint_num].cmd_joint_ = new_cmd_joint.second;
     }
   }
   void cbSetVel(const std_msgs::Float32::ConstPtr &msg, int num)
