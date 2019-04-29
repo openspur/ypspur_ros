@@ -60,6 +60,11 @@ This topic name is configurable through `ad?_name` parameter.
 
 Path to your vehicle parameter file for yp-spur.
 
+### ~/cmd_vel_expire [double: -1.0]
+
+Expire duration of cmd_vel. After this duration since receiving cmd_vel, velocity and angular velocity is set to zero.
+Negative or zero value disables this feature.
+
 ### ~/ad?_enable [bool: false]
 
 ### ~/ad?_name [string: "ad" + i]
