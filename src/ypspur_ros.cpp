@@ -159,7 +159,9 @@ private:
   int device_error_state_prev_;
   ros::Time device_error_state_time_;
 
-  geometry_msgs::Twist cmd_vel_;
+  geometry_msgs::Twist::ConstPtr cmd_vel_;
+  ros::Time cmd_vel_time_;
+  ros::Duration cmd_vel_expire_;
 
   int control_mode_;
 
@@ -180,7 +182,8 @@ private:
   }
   void cbCmdVel(const geometry_msgs::Twist::ConstPtr &msg)
   {
-    cmd_vel_ = *msg;
+    cmd_vel_ = msg;
+    cmd_vel_time_ = ros::Time::now();
     if (control_mode_ == ypspur_ros::ControlMode::VELOCITY)
     {
       YP::YPSpur_vel(msg->linear.x, msg->angular.z);
@@ -464,6 +467,11 @@ public:
     pnh_.param("ypspur_bin", ypspur_bin_, std::string("ypspur-coordinator"));
     pnh_.param("param_file", param_file_, std::string(""));
     pnh_.param("tf_time_offset", tf_time_offset_, 0.0);
+
+    double cmd_vel_expire_s;
+    pnh_.param("cmd_vel_expire", cmd_vel_expire_s, -1.0);
+    cmd_vel_expire_ = ros::Duration(cmd_vel_expire_s);
+
     std::string ad_mask("");
     ads_.resize(ad_num_);
     for (int i = 0; i < ad_num_; i++)
@@ -829,12 +837,23 @@ public:
     ros::Rate loop(params_["hz"]);
     while (!g_shutdown)
     {
-      auto now = ros::Time::now();
-      float dt = 1.0 / params_["hz"];
+      const auto now = ros::Time::now();
+      const float dt = 1.0 / params_["hz"];
+
+      if (cmd_vel_ && cmd_vel_expire_ > ros::Duration(0))
+      {
+        if (cmd_vel_time_ + cmd_vel_expire_ < now)
+        {
+          // cmd_vel is too old and expired
+          cmd_vel_ = nullptr;
+          if (control_mode_ == ypspur_ros::ControlMode::VELOCITY)
+            YP::YPSpur_vel(0.0, 0.0);
+        }
+      }
 
       if (mode_ == DIFF)
       {
-        double x, y, yaw, v, w;
+        double x, y, yaw, v(0), w(0);
         double t;
 
         if (!simulate_control_)
@@ -847,8 +866,11 @@ public:
         else
         {
           t = ros::Time::now().toSec();
-          v = cmd_vel_.linear.x;
-          w = cmd_vel_.angular.z;
+          if (cmd_vel_)
+          {
+            v = cmd_vel_->linear.x;
+            w = cmd_vel_->angular.z;
+          }
           yaw = tf::getYaw(odom.pose.pose.orientation) + dt * w;
           x = odom.pose.pose.position.x + dt * v * cosf(yaw);
           y = odom.pose.pose.position.y + dt * v * sinf(yaw);
