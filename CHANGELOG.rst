@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2019-05-09)
+------------------
 * Add parameter to set expire duration of cmd_vel (`#55 <https://github.com/openspur/ypspur_ros/issues/55>`_)
 * Ignore outdated JointTrajectory command (`#54 <https://github.com/openspur/ypspur_ros/issues/54>`_)
 * Fix exception type (`#52 <https://github.com/openspur/ypspur_ros/issues/52>`_)
