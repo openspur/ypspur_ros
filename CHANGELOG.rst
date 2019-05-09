@@ -2,6 +2,16 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.0 (2019-05-09)
+------------------
+* Add parameter to set expire duration of cmd_vel (`#55 <https://github.com/openspur/ypspur_ros/issues/55>`_)
+* Ignore outdated JointTrajectory command (`#54 <https://github.com/openspur/ypspur_ros/issues/54>`_)
+* Fix exception type (`#52 <https://github.com/openspur/ypspur_ros/issues/52>`_)
+* Fix subprocess handling (`#48 <https://github.com/openspur/ypspur_ros/issues/48>`_)
+* Add device error status diagnostic output (`#46 <https://github.com/openspur/ypspur_ros/issues/46>`_)
+* Fix test dependencies and update manifest (`#42 <https://github.com/openspur/ypspur_ros/issues/42>`_)
+* Contributors: Atsushi Watanabe
+
 0.2.0 (2018-06-07)
 ------------------
 * Add CI build for melodic (`#37 <https://github.com/openspur/ypspur_ros/issues/37>`_)
