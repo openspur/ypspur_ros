@@ -1306,8 +1306,10 @@ int main(int argc, char *argv[])
   catch (std::runtime_error &e)
   {
     ROS_ERROR("%s", e.what());
+    ros::WallDuration(0.5).sleep();
     return -1;
   }
 
+  ros::WallDuration(0.5).sleep();
   return 0;
 }
