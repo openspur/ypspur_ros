@@ -40,7 +40,7 @@ catkin_package(CATKIN_DEPENDS
 )
 find_package(Boost REQUIRED COMPONENTS chrono thread atomic REQUIRED)
 
-find_package(ypspur REQUIRED)
+find_package(ypspur 1.17.0 REQUIRED)
 
 ###########
 ## Build ##
