@@ -853,9 +853,12 @@ public:
         odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(yaw);
         tf_broadcaster_.sendTransform(odom_trans);
 
-        t = YP::YPSpur_get_force(&wrench.wrench.force.x, &wrench.wrench.torque.z);
-        if (t <= 0.0)
-          break;
+        if (!simulate_control_)
+        {
+          t = YP::YPSpur_get_force(&wrench.wrench.force.x, &wrench.wrench.torque.z);
+          if (t <= 0.0)
+            break;
+        }
         wrench.header.stamp = ros::Time(t);
         wrench.wrench.force.y = 0;
         wrench.wrench.force.z = 0;
