@@ -752,7 +752,7 @@ public:
       ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
     }
   }
-  void spin()
+  bool spin()
   {
     geometry_msgs::TransformStamped odom_trans;
     odom_trans.header.frame_id = frames_["odom"];
@@ -1220,10 +1220,14 @@ public:
         break;
       }
     }
-    if (YP::YP_get_error_state())
-      ROS_ERROR("ypspur-coordinator is not active");
-
     ROS_INFO("ypspur_ros main loop terminated");
+
+    if (YP::YP_get_error_state())
+    {
+      ROS_ERROR("ypspur-coordinator is not active");
+      return false;
+    }
+    return true;
   }
 };
 
@@ -1232,18 +1236,20 @@ int main(int argc, char* argv[])
   ros::init(argc, argv, "ypspur_ros");
   ros::NodeHandle nh;
 
+  int ret = 0;
+
   try
   {
     YpspurRosNode yr;
-    yr.spin();
+    if (!yr.spin())
+      ret = 1;
   }
   catch (std::runtime_error& e)
   {
     ROS_ERROR("%s", e.what());
-    ros::WallDuration(0.1).sleep();
-    return -1;
+    ret = 1;
   }
 
   ros::WallDuration(0.1).sleep();
-  return 0;
+  return ret;
 }
