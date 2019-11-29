@@ -5,6 +5,8 @@
 This package provides a ROS wrapper node for [YP-Spur](https://github.com/openspur/yp-spur) vehicle control backend. 
 The wrapper node supports almost all features provided by YP-Spur including vehicle control, digital IO, A/D input, multi-DOF joint control, etc.
 
+This package requires the latest version of [YP-Spur](https://github.com/openspur/yp-spur).
+
 ## Nodes
 ### [ypspur_ros](doc/ypspur_ros.md) 
 Wrapper node.
