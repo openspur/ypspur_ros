@@ -2,6 +2,16 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.1 (2019-12-16)
+------------------
+* Fix communication error handling (`#64 <https://github.com/openspur/ypspur_ros/issues/64>`_)
+* Drop support for yp-spur<1.17.0 to simplify the code (`#63 <https://github.com/openspur/ypspur_ros/issues/63>`_)
+* Add sleep to ensure publishing rosout before exit (`#61 <https://github.com/openspur/ypspur_ros/issues/61>`_)
+* Fix coding style (`#62 <https://github.com/openspur/ypspur_ros/issues/62>`_)
+* Add post-release test script (`#58 <https://github.com/openspur/ypspur_ros/issues/58>`_)
+* Disable CI build on indigo (`#59 <https://github.com/openspur/ypspur_ros/issues/59>`_)
+* Contributors: Atsushi Watanabe
+
 0.3.0 (2019-05-09)
 ------------------
 * Add parameter to set expire duration of cmd_vel (`#55 <https://github.com/openspur/ypspur_ros/issues/55>`_)
