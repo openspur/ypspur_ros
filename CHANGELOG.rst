@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.1 (2019-12-16)
+------------------
 * Fix communication error handling (`#64 <https://github.com/openspur/ypspur_ros/issues/64>`_)
 * Drop support for yp-spur<1.17.0 to simplify the code (`#63 <https://github.com/openspur/ypspur_ros/issues/63>`_)
 * Add sleep to ensure publishing rosout before exit (`#61 <https://github.com/openspur/ypspur_ros/issues/61>`_)
