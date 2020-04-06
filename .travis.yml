@@ -6,9 +6,16 @@ addons:
     packages:
       - python3-pip
       - python3-setuptools
+cache:
+  apt: true
+  directories:
+    - ${HOME}/.local/bin
+    - ${HOME}/.local/lib
+    - ${HOME}/docker
 env:
   global:
     - PACKAGE_NAME=ypspur_ros
+    - DOCKER_CACHE=${HOME}/docker/cache.tar
   matrix:
     - ROS_DISTRO_TARGET=kinetic
     - ROS_DISTRO_TARGET=melodic
@@ -17,7 +24,8 @@ branches:
     - master
 
 before_install:
-  - python3 -m pip install --user gh-pr-comment
+  - test -f ${DOCKER_CACHE} && docker load -i ${DOCKER_CACHE} || true
+  - python3 -m pip install --upgrade --user gh-pr-comment
 
 script:
   - BUILD_LINK="[[#${TRAVIS_BUILD_NUMBER}](${TRAVIS_BUILD_WEB_URL})]"
@@ -39,6 +47,9 @@ script:
       ${PACKAGE_NAME}:${ROS_DISTRO_TARGET} \
       /catkin_ws/src/${PACKAGE_NAME}/.travis/test.sh
 
+before_cache:
+  - docker save $(docker history -q ${PACKAGE_NAME}:${ROS_DISTRO_TARGET} | grep -v "<missing>") -o ${DOCKER_CACHE}
+
 jobs:
   include:
     - stage: test
@@ -58,17 +69,17 @@ jobs:
       if: head_branch =~ ^release-.*$
       env:
         - ROS_DISTRO_TARGET=kinetic
-      before_install: python3 -m pip install --user gh-pr-comment
+      before_install: python3 -m pip install --upgrade --user gh-pr-comment
       script: .travis/prerelease_test.sh
     - stage: prerelease-test
       if: head_branch =~ ^release-.*$
       env:
         - ROS_DISTRO_TARGET=melodic
-      before_install: python3 -m pip install --user gh-pr-comment
+      before_install: python3 -m pip install --upgrade --user gh-pr-comment
       script: .travis/prerelease_test.sh
     - stage: prerelease-test
       if: head_branch =~ ^release-.*$
       env:
         - ROS_DISTRO_TARGET=noetic
-      before_install: python3 -m pip install --user gh-pr-comment
+      before_install: python3 -m pip install --upgrade --user gh-pr-comment
       script: .travis/prerelease_test.sh
