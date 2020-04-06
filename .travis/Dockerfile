@@ -25,7 +25,7 @@ RUN apt-get -qq update \
   && apt-get install -y --no-install-recommends \
     curl \
     libxml2-utils \
-    python-pip \
+    python3-pip \
     sudo \
     wget \
   && apt-get clean \
