@@ -26,6 +26,7 @@ RUN apt-get -qq update \
     curl \
     libxml2-utils \
     python3-pip \
+    python3-setuptools \
     sudo \
     wget \
   && apt-get clean \
