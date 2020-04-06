@@ -2,6 +2,13 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add Noetic CI job and pre-release test jobs (`#69 <https://github.com/openspur/ypspur_ros/issues/69>`_)
+* Update assets to v0.0.7 (`#68 <https://github.com/openspur/ypspur_ros/issues/68>`_)
+* Update assets to v0.0.6 (`#67 <https://github.com/openspur/ypspur_ros/issues/67>`_)
+* Contributors: Atsushi Watanabe
+
 0.3.1 (2019-12-16)
 ------------------
 * Fix communication error handling (`#64 <https://github.com/openspur/ypspur_ros/issues/64>`_)
