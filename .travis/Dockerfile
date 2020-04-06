@@ -9,7 +9,7 @@ WORKDIR /repos
 COPY .rosinstall /repos/deps.rosinstall
 
 RUN wstool init src --shallow deps.rosinstall
-COPY . /repos/src/mcl_3dl
+COPY . /repos/src/ypspur_ros
 
 RUN mkdir -p /repos-manifests/src
 RUN find . -name package.xml | xargs -ISRC cp --parents SRC /repos-manifests/
@@ -37,8 +37,6 @@ RUN rosdep update \
 RUN python3 -m pip install gh-pr-comment catkin_lint
 
 COPY --from=cloner /repos/src /catkin_ws/src
-
-COPY . /catkin_ws/src/ypspur_ros
 
 RUN cd /catkin_ws/src \
   && . /opt/ros/${ROS_DISTRO}/setup.sh \
