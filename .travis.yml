@@ -11,11 +11,9 @@ cache:
   directories:
     - ${HOME}/.local/bin
     - ${HOME}/.local/lib
-    - ${HOME}/docker
 env:
   global:
     - PACKAGE_NAME=ypspur_ros
-    - DOCKER_CACHE=${HOME}/docker/cache.tar
   matrix:
     - ROS_DISTRO_TARGET=kinetic
     - ROS_DISTRO_TARGET=melodic
@@ -24,7 +22,6 @@ branches:
     - master
 
 before_install:
-  - test -f ${DOCKER_CACHE} && docker load -i ${DOCKER_CACHE} || true
   - python3 -m pip install --upgrade --user gh-pr-comment
 
 script:
@@ -46,9 +43,6 @@ script:
       $(bash <(curl -s https://codecov.io/env)) \
       ${PACKAGE_NAME}:${ROS_DISTRO_TARGET} \
       /catkin_ws/src/${PACKAGE_NAME}/.travis/test.sh
-
-before_cache:
-  - docker save $(docker history -q ${PACKAGE_NAME}:${ROS_DISTRO_TARGET} | grep -v "<missing>") -o ${DOCKER_CACHE}
 
 jobs:
   include:
