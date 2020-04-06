@@ -1,9 +1,10 @@
-sudo: required
+dist: bionic
 services: docker
-
-cache:
-  directories:
-    - /home/travis/docker/
+language: bash
+addons:
+  apt:
+    packages:
+      - python-pip
 env:
   global:
     - PACKAGE_NAME=ypspur_ros
@@ -19,10 +20,60 @@ branches:
 
 before_install:
   - .travis/load_cache.sh
-
-install: true
+  - pip install --user gh-pr-comment
 
 script:
-  - docker build --cache-from ${DOCKER_CACHE_REGISTRY}:${ROS_DISTRO_TARGET} -t ${DOCKER_CACHE_TARGET}:${ROS_DISTRO_TARGET} -f Dockerfile.${ROS_DISTRO_TARGET} --pull=true ${TRAVIS_BUILD_DIR}
-  - docker run --rm -it  -e TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} -e TRAVIS_PULL_REQUEST_SLUG=${TRAVIS_PULL_REQUEST_SLUG} -e TRAVIS_BOT_GITHUB_TOKEN=${TRAVIS_BOT_GITHUB_TOKEN} -e PACKAGE_NAME=${PACKAGE_NAME} ${DOCKER_CACHE_TARGET}:${ROS_DISTRO_TARGET} /catkin_ws/src/${PACKAGE_NAME}/.travis/test.sh
+  - BUILD_LINK="[[#${TRAVIS_BUILD_NUMBER}](${TRAVIS_BUILD_WEB_URL})]"
+  - |
+    docker build \
+      --cache-from ${DOCKER_CACHE_REGISTRY}:${ROS_DISTRO_TARGET} \
+      -t ${DOCKER_CACHE_TARGET}:${ROS_DISTRO_TARGET} \
+      -f .travis/Dockerfile \
+      --build-arg ROS_DISTRO=${ROS_DISTRO_TARGET} \
+      --pull=true ${TRAVIS_BUILD_DIR} \
+      || (gh-pr-comment "${BUILD_LINK} FAILED on ${ROS_DISTRO_TARGET}" "docker build failed"; false)
+  - |
+    docker run --rm -it
+      -e TRAVIS_PULL_REQUEST
+      -e TRAVIS_REPO_SLUG
+      -e TRAVIS_BOT_GITHUB_TOKEN
+      -e GITHUB_API_URL_BASE
+      -e BUILD_LINK=${BUILD_LINK}
+      $(bash <(curl -s https://codecov.io/env))
+      ${DOCKER_CACHE_TARGET}:${ROS_DISTRO_TARGET} \
+      /catkin_ws/src/${PACKAGE_NAME}/.travis/test.sh
   - .travis/save_cache.sh
+
+jobs:
+  include:
+    - stage: test
+      env:
+        - ROS_DISTRO_TARGET=noetic
+      script:
+        - BUILD_LINK="[[#${TRAVIS_BUILD_NUMBER}](${TRAVIS_BUILD_WEB_URL})]"
+        - |
+          docker run -it --rm \
+            -v $(pwd):/src/$(basename $(pwd)):ro \
+            alpineros/ros-abuild:3.11-noetic \
+            && gh-pr-comment "${BUILD_LINK} PASSED on ${ROS_DISTRO_TARGET}" \
+              "Tested on Alpine ROS" \
+            || (gh-pr-comment "${BUILD_LINK} FAILED on ${ROS_DISTRO_TARGET}" \
+              "Tested on Alpine ROS"; false) \
+    - stage: prerelease-test
+      if: head_branch =~ ^release-.*$
+      env:
+        - ROS_DISTRO_TARGET=kinetic
+      before_install: pip install --user gh-pr-comment
+      script: .travis/prerelease_test.sh
+    - stage: prerelease-test
+      if: head_branch =~ ^release-.*$
+      env:
+        - ROS_DISTRO_TARGET=melodic
+      before_install: pip install --user gh-pr-comment
+      script: .travis/prerelease_test.sh
+    - stage: prerelease-test
+      if: head_branch =~ ^release-.*$
+      env:
+        - ROS_DISTRO_TARGET=noetic
+      before_install: pip install --user gh-pr-comment
+      script: .travis/prerelease_test.sh
