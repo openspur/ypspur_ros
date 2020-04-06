@@ -3,9 +3,7 @@
 set -o errexit
 set -o verbose
 
-scriptdir=`dirname "${0}"`
-
-pip install gh-pr-comment
+scriptdir=$(dirname "${0}")
 
 source /opt/ros/${ROS_DISTRO}/setup.bash
 
