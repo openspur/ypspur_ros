@@ -2,8 +2,9 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.3.2 (2020-04-06)
-------------------
+Forthcoming
+-----------
+* Update assets to v0.0.8 (`#72 <https://github.com/openspur/ypspur_ros/issues/72>`_)
 * Add Noetic CI job and pre-release test jobs (`#69 <https://github.com/openspur/ypspur_ros/issues/69>`_)
 * Update assets to v0.0.7 (`#68 <https://github.com/openspur/ypspur_ros/issues/68>`_)
 * Update assets to v0.0.6 (`#67 <https://github.com/openspur/ypspur_ros/issues/67>`_)
