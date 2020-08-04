@@ -26,13 +26,13 @@ RUN apt-get -qq update \
     build-essential \
     curl \
     libxml2-utils \
-    python3-pip \
-    python3-rosdep \
+    python-pip \
+    python-rosdep \
     sudo \
     wget \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
-RUN python3 -m pip install catkin_lint
+RUN python -m pip install catkin_lint
 
 RUN rosdep init \
   && rosdep update \
