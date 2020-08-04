@@ -21,8 +21,7 @@ RUN sed -e \
   's|http://archive\.ubuntu\.com|http://us-east-1.ec2.archive.ubuntu.com|' \
   -i /etc/apt/sources.list
 
-RUN rosdep update \
-  && apt-get -qq update \
+RUN apt-get -qq update \
   && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
