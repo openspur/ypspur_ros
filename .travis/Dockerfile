@@ -25,19 +25,24 @@ COPY --from=cloner /repos-manifests/src /catkin_ws/src
 RUN rosdep update \
   && apt-get -qq update \
   && apt-get install -y --no-install-recommends \
+    build-essential \
     curl \
     libxml2-utils \
     python3-pip \
-    python3-setuptools \
+    python3-rosdep \
     sudo \
     wget \
   && rosdep install --from-paths /catkin_ws/src --ignore-src --rosdistro=${ROS_DISTRO} -y \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
-RUN python3 -m pip install gh-pr-comment catkin_lint
+RUN python3 -m pip install catkin_lint
 
-COPY --from=cloner /repos/src /catkin_ws/src
-
-RUN cd /catkin_ws/src \
+RUN rosdep init \
+  && rosdep update \
+  && mkdir -p /catkin_ws/src \
+  && cd /catkin_ws/src \
   && . /opt/ros/${ROS_DISTRO}/setup.sh \
   && catkin_init_workspace
+
+COPY --from=cloner /repos/src /catkin_ws/src
+COPY .travis/gh-pr-comment /usr/local/bin/
