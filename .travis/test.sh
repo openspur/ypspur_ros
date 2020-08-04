@@ -9,6 +9,7 @@ source /opt/ros/${ROS_DISTRO}/setup.bash
 
 cd /catkin_ws
 
+md_codeblock='```'
 CMI_OPTION="--install-space /opt/ros/${ROS_DISTRO} --install"
 
 catkin_make_isolated $CMI_OPTION || \
@@ -21,15 +22,15 @@ catkin_make_isolated $CMI_OPTION --catkin-make-args run_tests || \
 if [ catkin_test_results ];
 then
   result_text="
-\`\`\`
+${md_codeblock}
 $(catkin_test_results --all | grep -v Skipping || true)
-\`\`\`
+${md_codeblock}
 "
 else
   result_text="
-\`\`\`
+${md_codeblock}
 $(catkin_test_results --all || true)
-\`\`\`
+${md_codeblock}
 $(find build/test_results/ -name *.xml | xargs -n 1 -- bash -c 'echo; echo \#\#\# $0; echo; echo \\\`\\\`\\\`; xmllint --format $0; echo \\\`\\\`\\\`;')
 "
 fi
