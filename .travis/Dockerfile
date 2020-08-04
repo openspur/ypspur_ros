@@ -21,7 +21,6 @@ RUN sed -e \
   's|http://archive\.ubuntu\.com|http://us-east-1.ec2.archive.ubuntu.com|' \
   -i /etc/apt/sources.list
 
-COPY --from=cloner /repos-manifests/src /catkin_ws/src
 RUN rosdep update \
   && apt-get -qq update \
   && apt-get install -y --no-install-recommends \
@@ -32,7 +31,6 @@ RUN rosdep update \
     python3-rosdep \
     sudo \
     wget \
-  && rosdep install --from-paths /catkin_ws/src --ignore-src --rosdistro=${ROS_DISTRO} -y \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 RUN python3 -m pip install catkin_lint
@@ -43,6 +41,13 @@ RUN rosdep init \
   && cd /catkin_ws/src \
   && . /opt/ros/${ROS_DISTRO}/setup.sh \
   && catkin_init_workspace
+
+COPY --from=cloner /repos-manifests/src /catkin_ws/src
+
+RUN apt-get -qq update \
+  && rosdep install --from-paths /catkin_ws/src --ignore-src --rosdistro=${ROS_DISTRO} -y \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=cloner /repos/src /catkin_ws/src
 COPY .travis/gh-pr-comment /usr/local/bin/
