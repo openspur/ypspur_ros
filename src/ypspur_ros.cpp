@@ -671,6 +671,11 @@ public:
           int status;
           if (waitpid(pid_, &status, WNOHANG) == pid_)
           {
+            if (i == 4)
+            {
+              ros::WallDuration(0.1).sleep();
+              continue;
+            }
             throw(std::runtime_error("ypspur-coordinator dead immediately"));
           }
           else if (i == 0)
