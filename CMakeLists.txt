@@ -29,6 +29,7 @@ generate_messages(
 
 catkin_package(CATKIN_DEPENDS
   roscpp
+  message_runtime
 
   diagnostic_msgs
   geometry_msgs
