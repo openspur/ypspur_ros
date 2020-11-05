@@ -673,11 +673,13 @@ public:
           {
             if (WIFSIGNALED(status))
             {
-              throw(std::runtime_error("ypspur-coordinator dead immediately by signal " + std::to_string(WTERMSIG(status))));
+              throw(std::runtime_error(
+                  "ypspur-coordinator dead immediately by signal " + std::to_string(WTERMSIG(status))));
             }
             if (WIFEXITED(status))
             {
-              throw(std::runtime_error("ypspur-coordinator dead immediately with exit code " + std::to_string(WEXITSTATUS(status))));
+              throw(std::runtime_error(
+                  "ypspur-coordinator dead immediately with exit code " + std::to_string(WEXITSTATUS(status))));
             }
             throw(std::runtime_error("ypspur-coordinator dead immediately"));
           }
