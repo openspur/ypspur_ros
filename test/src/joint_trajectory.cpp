@@ -62,11 +62,14 @@ TEST(JointTrajectory, CommandValidation)
   // Wait until ypspur_ros
   for (int i = 0; i < 200 * 30; ++i)
   {
+    clock.clock += clock_step;
+    pub_clock.publish(clock);
     wait.sleep();
     ros::spinOnce();
     if (joint_states)
       break;
   }
+  ASSERT_TRUE(static_cast<bool>(joint_states));
 
   // Publish valid command
   trajectory_msgs::JointTrajectory cmd;
