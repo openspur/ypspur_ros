@@ -881,7 +881,7 @@ public:
                                   transform.getOrigin().y(),
                                   yaw);
           }
-          catch (tf::TransformException ex)
+          catch (tf::TransformException& ex)
           {
             ROS_ERROR("Failed to feedback localization result to YP-Spur (%s)", ex.what());
           }
