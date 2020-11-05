@@ -671,10 +671,13 @@ public:
           int status;
           if (waitpid(pid_, &status, WNOHANG) == pid_)
           {
-            if (i == 4)
+            if (WIFSIGNALED(status))
             {
-              ros::WallDuration(0.1).sleep();
-              continue;
+              throw(std::runtime_error("ypspur-coordinator dead immediately by signal " + std::to_string(WTERMSIG(status))));
+            }
+            if (WIFEXITED(status))
+            {
+              throw(std::runtime_error("ypspur-coordinator dead immediately with exit code " + std::to_string(WEXITSTATUS(status))));
             }
             throw(std::runtime_error("ypspur-coordinator dead immediately"));
           }
