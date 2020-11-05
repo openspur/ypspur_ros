@@ -671,6 +671,16 @@ public:
           int status;
           if (waitpid(pid_, &status, WNOHANG) == pid_)
           {
+            if (WIFSIGNALED(status))
+            {
+              throw(std::runtime_error(
+                  "ypspur-coordinator dead immediately by signal " + std::to_string(WTERMSIG(status))));
+            }
+            if (WIFEXITED(status))
+            {
+              throw(std::runtime_error(
+                  "ypspur-coordinator dead immediately with exit code " + std::to_string(WEXITSTATUS(status))));
+            }
             throw(std::runtime_error("ypspur-coordinator dead immediately"));
           }
           else if (i == 0)
@@ -881,7 +891,7 @@ public:
                                   transform.getOrigin().y(),
                                   yaw);
           }
-          catch (tf::TransformException ex)
+          catch (tf::TransformException& ex)
           {
             ROS_ERROR("Failed to feedback localization result to YP-Spur (%s)", ex.what());
           }

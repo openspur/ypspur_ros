@@ -47,8 +47,8 @@ TEST(JointTrajectory, CommandValidation)
       nh.advertise<rosgraph_msgs::Clock>("clock", 100);
 
   sensor_msgs::JointState::ConstPtr joint_states;
-  const boost::function<void(const sensor_msgs::JointState::ConstPtr &)> cb_joint =
-      [&joint_states](const sensor_msgs::JointState::ConstPtr &msg) -> void
+  const boost::function<void(const sensor_msgs::JointState::ConstPtr&)> cb_joint =
+      [&joint_states](const sensor_msgs::JointState::ConstPtr& msg) -> void
   {
     joint_states = msg;
   };
@@ -60,13 +60,16 @@ TEST(JointTrajectory, CommandValidation)
   pub_clock.publish(clock);
 
   // Wait until ypspur_ros
-  for (int i = 0; i < 1000; ++i)
+  for (int i = 0; i < 200 * 30; ++i)
   {
+    clock.clock += clock_step;
+    pub_clock.publish(clock);
     wait.sleep();
     ros::spinOnce();
     if (joint_states)
       break;
   }
+  ASSERT_TRUE(static_cast<bool>(joint_states));
 
   // Publish valid command
   trajectory_msgs::JointTrajectory cmd;
@@ -92,9 +95,9 @@ TEST(JointTrajectory, CommandValidation)
 
   // Valid command must not be ignored
   ASSERT_TRUE(static_cast<bool>(joint_states));
-  ASSERT_EQ(joint_states->name.size(), 1);
+  ASSERT_EQ(joint_states->name.size(), 1u);
   ASSERT_EQ(joint_states->name[0], "joint0");
-  ASSERT_EQ(joint_states->velocity.size(), 1);
+  ASSERT_EQ(joint_states->velocity.size(), 1u);
   ASSERT_NEAR(joint_states->velocity[0], 1.0, 0.1)
       << "Valid joint_trajectory must not be ignored";
 
@@ -131,7 +134,7 @@ TEST(JointTrajectory, CommandValidation)
       << "Outdated joint_trajectory must be ignored";
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_joint_trajectory");
