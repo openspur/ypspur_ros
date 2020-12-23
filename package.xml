@@ -25,5 +25,5 @@
   <depend>std_msgs</depend>
   <depend>tf</depend>
   <depend>trajectory_msgs</depend>
-  <depend version_gte="1.17.0">ypspur</depend>
+  <depend version_gte="1.20.0">ypspur</depend>
 </package>
