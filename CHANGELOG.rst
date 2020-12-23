@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.2 (2020-12-23)
+------------------
 * Update ypspur version (`#83 <https://github.com/openspur/ypspur_ros/issues/83>`_)
 * Update assets to v0.1.3 (`#82 <https://github.com/openspur/ypspur_ros/issues/82>`_)
 * Update assets to v0.1.2 (`#81 <https://github.com/openspur/ypspur_ros/issues/81>`_)
