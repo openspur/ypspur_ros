@@ -2,6 +2,22 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.2 (2020-12-23)
+------------------
+* Update ypspur version (`#83 <https://github.com/openspur/ypspur_ros/issues/83>`_)
+* Update assets to v0.1.3 (`#82 <https://github.com/openspur/ypspur_ros/issues/82>`_)
+* Update assets to v0.1.2 (`#81 <https://github.com/openspur/ypspur_ros/issues/81>`_)
+* Migrate to GitHub Actions (`#79 <https://github.com/openspur/ypspur_ros/issues/79>`_)
+* Update assets to v0.0.10 (`#78 <https://github.com/openspur/ypspur_ros/issues/78>`_)
+* Update assets to v0.0.9 (`#76 <https://github.com/openspur/ypspur_ros/issues/76>`_)
+* Update CI scripts (`#77 <https://github.com/openspur/ypspur_ros/issues/77>`_)
+* Update cmake version of cmake_minimum_required() from 2.8.3 to 3.0.2 (`#75 <https://github.com/openspur/ypspur_ros/issues/75>`_)
+* Update assets to v0.0.8 (`#72 <https://github.com/openspur/ypspur_ros/issues/72>`_)
+* Add Noetic CI job and pre-release test jobs (`#69 <https://github.com/openspur/ypspur_ros/issues/69>`_)
+* Update assets to v0.0.7 (`#68 <https://github.com/openspur/ypspur_ros/issues/68>`_)
+* Update assets to v0.0.6 (`#67 <https://github.com/openspur/ypspur_ros/issues/67>`_)
+* Contributors: Atsushi Watanabe, Kazuki Takahashi, Seiga Kiribayashi
+
 0.3.1 (2019-12-16)
 ------------------
 * Fix communication error handling (`#64 <https://github.com/openspur/ypspur_ros/issues/64>`_)
