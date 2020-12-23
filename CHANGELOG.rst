@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.3 (2020-12-23)
+------------------
 * Update assets to v0.1.4 (`#86 <https://github.com/openspur/ypspur_ros/issues/86>`_)
 * Contributors: Atsushi Watanabe
 
