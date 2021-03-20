@@ -424,10 +424,10 @@ public:
   YpspurRosNode()
     : nh_()
     , pnh_("~")
+    , tf_listener_(tf_buffer_)
     , device_error_state_(0)
     , device_error_state_prev_(0)
     , device_error_state_time_(0)
-    , tf_listener_(tf_buffer_)
   {
     compat::checkCompatMode();
 
