@@ -32,7 +32,8 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <sensor_msgs/JointState.h>
 
-#include <tf/transform_broadcaster.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 #include <signal.h>
 #include <sys/types.h>
@@ -48,7 +49,7 @@ private:
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
   std::map<std::string, ros::Subscriber> subs_;
-  tf::TransformBroadcaster tf_broadcaster_;
+  tf2_ros::TransformBroadcaster tf_broadcaster_;
 
   void cbJoint(const sensor_msgs::JointState::ConstPtr& msg)
   {
@@ -58,7 +59,10 @@ private:
       trans.header = msg->header;
       trans.header.frame_id = msg->name[i] + "_in";
       trans.child_frame_id = msg->name[i] + "_out";
-      trans.transform.rotation = tf::createQuaternionMsgFromYaw(msg->position[i]);
+
+      tf2::Quaternion quat_tf;
+      quat_tf.setRPY(0, 0, msg->position[i]);
+      trans.transform.rotation = tf2::toMsg(quat_tf);
       tf_broadcaster_.sendTransform(trans);
     }
   }

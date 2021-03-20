@@ -43,8 +43,10 @@
 #include <ypspur_ros/DigitalOutput.h>
 #include <ypspur_ros/JointPositionControl.h>
 
-#include <tf/transform_broadcaster.h>
-#include <tf/transform_listener.h>
+#include <tf2/utils.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <signal.h>
 #include <string.h>
@@ -83,8 +85,9 @@ private:
   ros::NodeHandle pnh_;
   std::map<std::string, ros::Publisher> pubs_;
   std::map<std::string, ros::Subscriber> subs_;
-  tf::TransformListener tf_listener_;
-  tf::TransformBroadcaster tf_broadcaster_;
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener tf_listener_;
+  tf2_ros::TransformBroadcaster tf_broadcaster_;
 
   std::string port_;
   std::string param_file_;
@@ -424,6 +427,7 @@ public:
     , device_error_state_(0)
     , device_error_state_prev_(0)
     , device_error_state_time_(0)
+    , tf_listener_(tf_buffer_)
   {
     compat::checkCompatMode();
 
@@ -777,7 +781,9 @@ public:
     odom.pose.pose.position.x = 0;
     odom.pose.pose.position.y = 0;
     odom.pose.pose.position.z = 0;
-    odom.pose.pose.orientation = tf::createQuaternionMsgFromYaw(0);
+    tf2::Quaternion quat_tf;
+    quat_tf.setRPY(0, 0, 0);
+    odom.pose.pose.orientation = tf2::toMsg(quat_tf);
     odom.twist.twist.linear.x = 0;
     odom.twist.twist.linear.y = 0;
     odom.twist.twist.angular.z = 0;
@@ -841,7 +847,7 @@ public:
             v = cmd_vel_->linear.x;
             w = cmd_vel_->angular.z;
           }
-          yaw = tf::getYaw(odom.pose.pose.orientation) + dt * w;
+          yaw = tf2::getYaw(odom.pose.pose.orientation) + dt * w;
           x = odom.pose.pose.position.x + dt * v * cosf(yaw);
           y = odom.pose.pose.position.y + dt * v * sinf(yaw);
         }
@@ -850,7 +856,9 @@ public:
         odom.pose.pose.position.x = x;
         odom.pose.pose.position.y = y;
         odom.pose.pose.position.z = 0;
-        odom.pose.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+        tf2::Quaternion quat_tf;
+        quat_tf.setRPY(0, 0, yaw);
+        odom.pose.pose.orientation = tf2::toMsg(quat_tf);
         odom.twist.twist.linear.x = v;
         odom.twist.twist.linear.y = 0;
         odom.twist.twist.angular.z = w;
@@ -860,7 +868,7 @@ public:
         odom_trans.transform.translation.x = x;
         odom_trans.transform.translation.y = y;
         odom_trans.transform.translation.z = 0;
-        odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(yaw);
+        odom_trans.transform.rotation = odom.pose.pose.orientation;
         tf_broadcaster_.sendTransform(odom_trans);
 
         if (!simulate_control_)
@@ -880,18 +888,19 @@ public:
         {
           try
           {
-            tf::StampedTransform transform;
-            tf_listener_.lookupTransform(
+            tf2::Stamped<tf2::Transform> transform;
+            geometry_msgs::TransformStamped transform_msg = tf_buffer_.lookupTransform(
                 frames_["origin"], frames_["base_link"],
-                ros::Time(0), transform);
+                ros::Time(0));
+            tf2::fromMsg(transform_msg, transform);
 
-            tfScalar yaw, pitch, roll;
+            tf2Scalar yaw, pitch, roll;
             transform.getBasis().getEulerYPR(yaw, pitch, roll);
             YP::YPSpur_adjust_pos(YP::CS_GL, transform.getOrigin().x(),
                                   transform.getOrigin().y(),
                                   yaw);
           }
-          catch (tf::TransformException& ex)
+          catch (tf2::TransformException& ex)
           {
             ROS_ERROR("Failed to feedback localization result to YP-Spur (%s)", ex.what());
           }
@@ -1005,10 +1014,11 @@ public:
         }
         pubs_["joint"].publish(joint);
 
+        tf2::Quaternion quat_tf;
         for (unsigned int i = 0; i < joints_.size(); i++)
         {
-          joint_trans[i].transform.rotation =
-              tf::createQuaternionMsgFromYaw(joint.position[i]);
+          quat_tf.setRPY(0, 0, joint.position[i]);
+          joint_trans[i].transform.rotation = tf2::toMsg(quat_tf);
           joint_trans[i].header.stamp = ros::Time(t) + ros::Duration(tf_time_offset_);
           tf_broadcaster_.sendTransform(joint_trans[i]);
         }
