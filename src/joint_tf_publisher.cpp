@@ -50,6 +50,7 @@ private:
   ros::NodeHandle pnh_;
   std::map<std::string, ros::Subscriber> subs_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
+  tf2::Vector3 z_axis_;
 
   void cbJoint(const sensor_msgs::JointState::ConstPtr& msg)
   {
@@ -60,9 +61,7 @@ private:
       trans.header.frame_id = msg->name[i] + "_in";
       trans.child_frame_id = msg->name[i] + "_out";
 
-      tf2::Quaternion quat_tf;
-      quat_tf.setRPY(0, 0, msg->position[i]);
-      trans.transform.rotation = tf2::toMsg(quat_tf);
+      trans.transform.rotation = tf2::toMsg(tf2::Quaternion(z_axis_, msg->position[i]));
       tf_broadcaster_.sendTransform(trans);
     }
   }
@@ -71,6 +70,7 @@ public:
   JointTfPublisherNode()
     : nh_()
     , pnh_("~")
+    , z_axis_(0, 0, 1)
   {
     subs_["joint"] = compat::subscribe(
         nh_, "joint_states",

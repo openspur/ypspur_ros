@@ -88,6 +88,7 @@ private:
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
+  tf2::Vector3 z_axis_;
 
   std::string port_;
   std::string param_file_;
@@ -425,6 +426,7 @@ public:
     : nh_()
     , pnh_("~")
     , tf_listener_(tf_buffer_)
+    , z_axis_(0, 0, 1)
     , device_error_state_(0)
     , device_error_state_prev_(0)
     , device_error_state_time_(0)
@@ -781,9 +783,7 @@ public:
     odom.pose.pose.position.x = 0;
     odom.pose.pose.position.y = 0;
     odom.pose.pose.position.z = 0;
-    tf2::Quaternion quat_tf;
-    quat_tf.setRPY(0, 0, 0);
-    odom.pose.pose.orientation = tf2::toMsg(quat_tf);
+    odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, 0));
     odom.twist.twist.linear.x = 0;
     odom.twist.twist.linear.y = 0;
     odom.twist.twist.angular.z = 0;
@@ -856,9 +856,7 @@ public:
         odom.pose.pose.position.x = x;
         odom.pose.pose.position.y = y;
         odom.pose.pose.position.z = 0;
-        tf2::Quaternion quat_tf;
-        quat_tf.setRPY(0, 0, yaw);
-        odom.pose.pose.orientation = tf2::toMsg(quat_tf);
+        odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, yaw));
         odom.twist.twist.linear.x = v;
         odom.twist.twist.linear.y = 0;
         odom.twist.twist.angular.z = w;
@@ -1014,11 +1012,9 @@ public:
         }
         pubs_["joint"].publish(joint);
 
-        tf2::Quaternion quat_tf;
         for (unsigned int i = 0; i < joints_.size(); i++)
         {
-          quat_tf.setRPY(0, 0, joint.position[i]);
-          joint_trans[i].transform.rotation = tf2::toMsg(quat_tf);
+          joint_trans[i].transform.rotation = tf2::toMsg(tf2::Quaternion(z_axis_, joint.position[i]));
           joint_trans[i].header.stamp = ros::Time(t) + ros::Duration(tf_time_offset_);
           tf_broadcaster_.sendTransform(joint_trans[i]);
         }
