@@ -88,7 +88,7 @@ private:
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
-  tf2::Vector3 z_axis_;
+  const tf2::Vector3 z_axis_;
 
   std::string port_;
   std::string param_file_;

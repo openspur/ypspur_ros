@@ -50,7 +50,7 @@ private:
   ros::NodeHandle pnh_;
   std::map<std::string, ros::Subscriber> subs_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
-  tf2::Vector3 z_axis_;
+  const tf2::Vector3 z_axis_;
 
   void cbJoint(const sensor_msgs::JointState::ConstPtr& msg)
   {
