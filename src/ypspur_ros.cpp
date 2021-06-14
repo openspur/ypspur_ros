@@ -634,11 +634,10 @@ public:
       {
         std::vector<std::string> args =
             {
-              ypspur_bin_,
-              "-d", port_,
-              "--admask", ad_mask,
-              "--msq-key", std::to_string(key_)
-            };
+                ypspur_bin_,
+                "-d", port_,
+                "--admask", ad_mask,
+                "--msq-key", std::to_string(key_)};
         if (digital_input_enable_)
           args.push_back(std::string("--enable-get-digital-io"));
         if (simulate_)
@@ -706,8 +705,7 @@ public:
       }
       double ret;
       boost::atomic<bool> done(false);
-      auto get_vel_thread = [&ret, &done]
-      {
+      auto get_vel_thread = [&ret, &done] {
         double test_v, test_w;
         ret = YP::YPSpur_get_vel(&test_v, &test_w);
         done = true;
@@ -877,11 +875,13 @@ public:
           odom_trans.transform.translation.z = 0;
           odom_trans.transform.rotation = odom.pose.pose.orientation;
           tf_broadcaster_.sendTransform(odom_trans);
+          ROS_INFO("Odometry publsihed. Current: %f, Previous: %f",
+                   current_stamp.toSec(), prevous_odom_stamp_.toSec());
         }
         else
         {
-          ROS_WARN_THROTTLE(1.0, "Odometry timestamp skew detected. Current: %f, Previous: %f",
-                            current_stamp.toSec(), prevous_odom_stamp_.toSec());
+          ROS_WARN("Odometry timestamp skew detected. Current: %f, Previous: %f",
+                   current_stamp.toSec(), prevous_odom_stamp_.toSec());
         }
         prevous_odom_stamp_ = current_stamp;
 
@@ -1087,8 +1087,7 @@ public:
 
               auto vf = [](const double& st, const double& en,
                            const double& acc, const double& err, const double& t,
-                           const int& sig, const int& sol, double& ret)
-              {
+                           const int& sig, const int& sol, double& ret) {
                 double sq;
                 sq = -4.0 * st * st +
                      8.0 * st * en -
