@@ -169,6 +169,9 @@ private:
 
   int control_mode_;
 
+  bool avoid_publshing_duplicated_odom_;
+  ros::Time prevous_odom_stamp_;
+
   void cbControlMode(const ypspur_ros::ControlMode::ConstPtr& msg)
   {
     control_mode_ = msg->vehicle_control_mode;
@@ -430,6 +433,7 @@ public:
     , device_error_state_(0)
     , device_error_state_prev_(0)
     , device_error_state_time_(0)
+    , avoid_publshing_duplicated_odom_(false)
   {
     compat::checkCompatMode();
 
@@ -547,6 +551,8 @@ public:
       subs_["cmd_vel"] = compat::subscribe(
           nh_, "cmd_vel",
           pnh_, "cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
+
+      pnh_.param("avoid_publshing_duplicated_odom", avoid_publshing_duplicated_odom_, false);
     }
     else if (mode_name.compare("none") == 0)
     {
@@ -852,22 +858,32 @@ public:
           y = odom.pose.pose.position.y + dt * v * sinf(yaw);
         }
 
-        odom.header.stamp = ros::Time(t);
-        odom.pose.pose.position.x = x;
-        odom.pose.pose.position.y = y;
-        odom.pose.pose.position.z = 0;
-        odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, yaw));
-        odom.twist.twist.linear.x = v;
-        odom.twist.twist.linear.y = 0;
-        odom.twist.twist.angular.z = w;
-        pubs_["odom"].publish(odom);
+        const ros::Time current_stamp(t);
+        if (current_stamp > prevous_odom_stamp_)
+        {
+          odom.header.stamp = current_stamp;
+          odom.pose.pose.position.x = x;
+          odom.pose.pose.position.y = y;
+          odom.pose.pose.position.z = 0;
+          odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, yaw));
+          odom.twist.twist.linear.x = v;
+          odom.twist.twist.linear.y = 0;
+          odom.twist.twist.angular.z = w;
+          pubs_["odom"].publish(odom);
 
-        odom_trans.header.stamp = ros::Time(t) + ros::Duration(tf_time_offset_);
-        odom_trans.transform.translation.x = x;
-        odom_trans.transform.translation.y = y;
-        odom_trans.transform.translation.z = 0;
-        odom_trans.transform.rotation = odom.pose.pose.orientation;
-        tf_broadcaster_.sendTransform(odom_trans);
+          odom_trans.header.stamp = current_stamp + ros::Duration(tf_time_offset_);
+          odom_trans.transform.translation.x = x;
+          odom_trans.transform.translation.y = y;
+          odom_trans.transform.translation.z = 0;
+          odom_trans.transform.rotation = odom.pose.pose.orientation;
+          tf_broadcaster_.sendTransform(odom_trans);
+        }
+        else
+        {
+          ROS_WARN_THROTTLE(1.0, "Odometry timestamp skew detected. Current: %f, Previous: %f",
+                            current_stamp.toSec(), prevous_odom_stamp_.toSec());
+        }
+        prevous_odom_stamp_ = current_stamp;
 
         if (!simulate_control_)
         {
