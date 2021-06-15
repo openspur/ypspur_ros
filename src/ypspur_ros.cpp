@@ -170,6 +170,7 @@ private:
   int control_mode_;
 
   bool avoid_publshing_duplicated_odom_;
+  bool publish_odom_tf_;
   ros::Time prevous_odom_stamp_;
 
   void cbControlMode(const ypspur_ros::ControlMode::ConstPtr& msg)
@@ -434,6 +435,7 @@ public:
     , device_error_state_prev_(0)
     , device_error_state_time_(0)
     , avoid_publshing_duplicated_odom_(false)
+    , publish_odom_tf_(true)
   {
     compat::checkCompatMode();
 
@@ -553,6 +555,7 @@ public:
           pnh_, "cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
 
       pnh_.param("avoid_publshing_duplicated_odom", avoid_publshing_duplicated_odom_, false);
+      pnh_.param("publish_odom_tf", publish_odom_tf_, true);
     }
     else if (mode_name.compare("none") == 0)
     {
@@ -871,19 +874,15 @@ public:
           odom.twist.twist.angular.z = w;
           pubs_["odom"].publish(odom);
 
-          odom_trans.header.stamp = current_stamp + ros::Duration(tf_time_offset_);
-          odom_trans.transform.translation.x = x;
-          odom_trans.transform.translation.y = y;
-          odom_trans.transform.translation.z = 0;
-          odom_trans.transform.rotation = odom.pose.pose.orientation;
-          tf_broadcaster_.sendTransform(odom_trans);
-          ROS_INFO("Odometry publsihed. Current: %f, Previous: %f",
-                   current_stamp.toSec(), prevous_odom_stamp_.toSec());
-        }
-        else
-        {
-          ROS_WARN("Odometry timestamp skew detected. Current: %f, Previous: %f",
-                   current_stamp.toSec(), prevous_odom_stamp_.toSec());
+          if (publish_odom_tf_)
+          {
+            odom_trans.header.stamp = current_stamp + ros::Duration(tf_time_offset_);
+            odom_trans.transform.translation.x = x;
+            odom_trans.transform.translation.y = y;
+            odom_trans.transform.translation.z = 0;
+            odom_trans.transform.rotation = odom.pose.pose.orientation;
+            tf_broadcaster_.sendTransform(odom_trans);
+          }
         }
         prevous_odom_stamp_ = current_stamp;
 
