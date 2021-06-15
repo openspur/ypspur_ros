@@ -169,9 +169,9 @@ private:
 
   int control_mode_;
 
-  bool avoid_publshing_duplicated_odom_;
+  bool avoid_publishing_duplicated_odom_;
   bool publish_odom_tf_;
-  ros::Time prevous_odom_stamp_;
+  ros::Time previous_odom_stamp_;
 
   void cbControlMode(const ypspur_ros::ControlMode::ConstPtr& msg)
   {
@@ -434,7 +434,7 @@ public:
     , device_error_state_(0)
     , device_error_state_prev_(0)
     , device_error_state_time_(0)
-    , avoid_publshing_duplicated_odom_(false)
+    , avoid_publishing_duplicated_odom_(false)
     , publish_odom_tf_(true)
   {
     compat::checkCompatMode();
@@ -554,7 +554,7 @@ public:
           nh_, "cmd_vel",
           pnh_, "cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
 
-      pnh_.param("avoid_publshing_duplicated_odom", avoid_publshing_duplicated_odom_, false);
+      pnh_.param("avoid_publishing_duplicated_odom", avoid_publishing_duplicated_odom_, false);
       pnh_.param("publish_odom_tf", publish_odom_tf_, true);
     }
     else if (mode_name.compare("none") == 0)
@@ -862,7 +862,7 @@ public:
         }
 
         const ros::Time current_stamp(t);
-        if (current_stamp > prevous_odom_stamp_)
+        if (!avoid_publishing_duplicated_odom_ || (current_stamp > previous_odom_stamp_))
         {
           odom.header.stamp = current_stamp;
           odom.pose.pose.position.x = x;
@@ -884,7 +884,7 @@ public:
             tf_broadcaster_.sendTransform(odom_trans);
           }
         }
-        prevous_odom_stamp_ = current_stamp;
+        previous_odom_stamp_ = current_stamp;
 
         if (!simulate_control_)
         {
