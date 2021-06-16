@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.5 (2021-06-16)
+------------------
 * Avoid publishing duplicated odometry (`#97 <https://github.com/openspur/ypspur_ros/issues/97>`_)
 * Update assets to v0.3.1 (`#96 <https://github.com/openspur/ypspur_ros/issues/96>`_)
 * Update assets to v0.3.0 (`#95 <https://github.com/openspur/ypspur_ros/issues/95>`_)
