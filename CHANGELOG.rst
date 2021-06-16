@@ -2,6 +2,17 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Avoid publishing duplicated odometry (`#97 <https://github.com/openspur/ypspur_ros/issues/97>`_)
+* Update assets to v0.3.1 (`#96 <https://github.com/openspur/ypspur_ros/issues/96>`_)
+* Update assets to v0.3.0 (`#95 <https://github.com/openspur/ypspur_ros/issues/95>`_)
+* Update assets to v0.2.0 (`#94 <https://github.com/openspur/ypspur_ros/issues/94>`_)
+* Migrate to tf2 (`#93 <https://github.com/openspur/ypspur_ros/issues/93>`_)
+* Update assets to v0.1.5 (`#92 <https://github.com/openspur/ypspur_ros/issues/92>`_)
+* Add LICENSE file (`#91 <https://github.com/openspur/ypspur_ros/issues/91>`_)
+* Contributors: Atsushi Watanabe, Naotaka Hatao, f-fl0
+
 0.3.4 (2020-12-23)
 ------------------
 
