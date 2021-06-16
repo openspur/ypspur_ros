@@ -434,7 +434,7 @@ public:
     , device_error_state_(0)
     , device_error_state_prev_(0)
     , device_error_state_time_(0)
-    , avoid_publishing_duplicated_odom_(false)
+    , avoid_publishing_duplicated_odom_(true)
     , publish_odom_tf_(true)
   {
     compat::checkCompatMode();
@@ -554,7 +554,7 @@ public:
           nh_, "cmd_vel",
           pnh_, "cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
 
-      pnh_.param("avoid_publishing_duplicated_odom", avoid_publishing_duplicated_odom_, false);
+      pnh_.param("avoid_publishing_duplicated_odom", avoid_publishing_duplicated_odom_, true);
       pnh_.param("publish_odom_tf", publish_odom_tf_, true);
     }
     else if (mode_name.compare("none") == 0)
