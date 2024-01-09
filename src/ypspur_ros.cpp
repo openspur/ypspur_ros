@@ -169,8 +169,10 @@ private:
 
   int control_mode_;
 
+  bool avoid_publishing_duplicated_joints_;
   bool avoid_publishing_duplicated_odom_;
   bool publish_odom_tf_;
+  ros::Time previous_joints_stamp_;
   ros::Time previous_odom_stamp_;
 
   void cbControlMode(const ypspur_ros::ControlMode::ConstPtr& msg)
@@ -434,6 +436,7 @@ public:
     , device_error_state_(0)
     , device_error_state_prev_(0)
     , device_error_state_time_(0)
+    , avoid_publishing_duplicated_joints_(true)
     , avoid_publishing_duplicated_odom_(true)
     , publish_odom_tf_(true)
   {
@@ -554,6 +557,7 @@ public:
           nh_, "cmd_vel",
           pnh_, "cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
 
+      pnh_.param("avoid_publishing_duplicated_joints", avoid_publishing_duplicated_joints_, true);
       pnh_.param("avoid_publishing_duplicated_odom", avoid_publishing_duplicated_odom_, true);
       pnh_.param("publish_odom_tf", publish_odom_tf_, true);
     }
@@ -1027,7 +1031,13 @@ public:
           }
           joint.header.stamp = ros::Time(t);
         }
-        pubs_["joint"].publish(joint);
+
+        if (!avoid_publishing_duplicated_joints_ || (joint.header.stamp > previous_joints_stamp_))
+        {
+          pubs_["joint"].publish(joint);
+          previous_joints_stamp_ = joint.header.stamp;
+        }
+
 
         for (unsigned int i = 0; i < joints_.size(); i++)
         {
