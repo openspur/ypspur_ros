@@ -1032,9 +1032,10 @@ public:
           joint.header.stamp = ros::Time(t);
         }
 
-        if (!avoid_publishing_duplicated_joints_ || (joint.header.stamp > previous_joint_stamp_))
+        if (!avoid_publishing_duplicated_joints_ || (joint.header.stamp > previous_joints_stamp_))
         {
           pubs_["joint"].publish(joint);
+          previous_joints_stamp_ = joint.header.stamp;
         }
 
 
