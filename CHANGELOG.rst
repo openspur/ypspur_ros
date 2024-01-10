@@ -2,6 +2,23 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Avoid publishing joint messages with duplicate stamps (`#115 <https://github.com/openspur/ypspur_ros/issues/115>`_)
+* Update assets to v0.6.2 (`#114 <https://github.com/openspur/ypspur_ros/issues/114>`_)
+* Update assets to v0.6.1 (`#113 <https://github.com/openspur/ypspur_ros/issues/113>`_)
+* Update assets to v0.6.0 (`#112 <https://github.com/openspur/ypspur_ros/issues/112>`_)
+* Update assets to v0.5.2 (`#111 <https://github.com/openspur/ypspur_ros/issues/111>`_)
+* Update assets to v0.5.1 (`#110 <https://github.com/openspur/ypspur_ros/issues/110>`_)
+* Update assets to v0.5.0 (`#109 <https://github.com/openspur/ypspur_ros/issues/109>`_)
+* Update assets to v0.4.2 (`#108 <https://github.com/openspur/ypspur_ros/issues/108>`_)
+* Update assets to v0.4.1 (`#107 <https://github.com/openspur/ypspur_ros/issues/107>`_)
+* Update assets to v0.4.0 (`#106 <https://github.com/openspur/ypspur_ros/issues/106>`_)
+* Update assets to v0.3.4 (`#102 <https://github.com/openspur/ypspur_ros/issues/102>`_)
+* Update assets to v0.3.3 (`#101 <https://github.com/openspur/ypspur_ros/issues/101>`_)
+* Update assets to v0.3.2 (`#100 <https://github.com/openspur/ypspur_ros/issues/100>`_)
+* Contributors: Atsushi Watanabe, Mark Hedley Jones
+
 0.3.5 (2021-06-16)
 ------------------
 * Avoid publishing duplicated odometry (`#97 <https://github.com/openspur/ypspur_ros/issues/97>`_)
