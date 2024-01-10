@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.6 (2024-01-10)
+------------------
 * Avoid publishing joint messages with duplicate stamps (`#115 <https://github.com/openspur/ypspur_ros/issues/115>`_)
 * Update assets to v0.6.2 (`#114 <https://github.com/openspur/ypspur_ros/issues/114>`_)
 * Update assets to v0.6.1 (`#113 <https://github.com/openspur/ypspur_ros/issues/113>`_)
