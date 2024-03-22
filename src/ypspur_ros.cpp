@@ -97,7 +97,6 @@ private:
   std::map<std::string, double> params_;
   int key_;
   bool simulate_;
-  bool simulate_control_;
 
   double tf_time_offset_;
 
@@ -445,9 +444,13 @@ public:
     pnh_.param("port", port_, std::string("/dev/ttyACM0"));
     pnh_.param("ipc_key", key_, 28741);
     pnh_.param("simulate", simulate_, false);
-    pnh_.param("simulate_control", simulate_control_, false);
-    if (simulate_control_)
+    bool simulate_control;
+    pnh_.param("simulate_control", simulate_control, false);
+    if (simulate_control)
+    {
+      ROS_WARN("simulate_control parameter is deprecated. Use simulate parameter instead");
       simulate_ = true;
+    }
     pnh_.param("ypspur_bin", ypspur_bin_, std::string("ypspur-coordinator"));
     pnh_.param("param_file", param_file_, std::string(""));
     pnh_.param("tf_time_offset", tf_time_offset_, 0.0);
@@ -641,11 +644,10 @@ public:
       {
         std::vector<std::string> args =
             {
-              ypspur_bin_,
-              "-d", port_,
-              "--admask", ad_mask,
-              "--msq-key", std::to_string(key_)
-            };
+                ypspur_bin_,
+                "-d", port_,
+                "--admask", ad_mask,
+                "--msq-key", std::to_string(key_)};
         if (digital_input_enable_)
           args.push_back(std::string("--enable-get-digital-io"));
         if (simulate_)
@@ -845,25 +847,10 @@ public:
         double x, y, yaw, v(0), w(0);
         double t;
 
-        if (!simulate_control_)
-        {
-          t = YP::YPSpur_get_pos(YP::CS_BS, &x, &y, &yaw);
-          if (t <= 0.0)
-            break;
-          YP::YPSpur_get_vel(&v, &w);
-        }
-        else
-        {
-          t = ros::Time::now().toSec();
-          if (cmd_vel_)
-          {
-            v = cmd_vel_->linear.x;
-            w = cmd_vel_->angular.z;
-          }
-          yaw = tf2::getYaw(odom.pose.pose.orientation) + dt * w;
-          x = odom.pose.pose.position.x + dt * v * cosf(yaw);
-          y = odom.pose.pose.position.y + dt * v * sinf(yaw);
-        }
+        t = YP::YPSpur_get_pos(YP::CS_BS, &x, &y, &yaw);
+        if (t <= 0.0)
+          break;
+        YP::YPSpur_get_vel(&v, &w);
 
         const ros::Time current_stamp(t);
         if (!avoid_publishing_duplicated_odom_ || (current_stamp > previous_odom_stamp_))
@@ -890,12 +877,10 @@ public:
         }
         previous_odom_stamp_ = current_stamp;
 
-        if (!simulate_control_)
-        {
-          t = YP::YPSpur_get_force(&wrench.wrench.force.x, &wrench.wrench.torque.z);
-          if (t <= 0.0)
-            break;
-        }
+        t = YP::YPSpur_get_force(&wrench.wrench.force.x, &wrench.wrench.torque.z);
+        if (t <= 0.0)
+          break;
+
         wrench.header.stamp = ros::Time(t);
         wrench.wrench.force.y = 0;
         wrench.wrench.force.z = 0;
@@ -928,116 +913,44 @@ public:
       if (joints_.size() > 0)
       {
         double t;
-        if (!simulate_control_)
+        t = -1.0;
+        while (t < 0.0)
         {
-          t = -1.0;
-          while (t < 0.0)
+          int i = 0;
+          for (auto& j : joints_)
           {
-            int i = 0;
-            for (auto& j : joints_)
+            const double t0 = YP::YP_get_joint_ang(j.id_, &joint.position[i]);
+            const double t1 = YP::YP_get_joint_vel(j.id_, &joint.velocity[i]);
+            const double t2 = YP::YP_get_joint_torque(j.id_, &joint.effort[i]);
+
+            if (t0 != t1 || t1 != t2)
             {
-              const double t0 = YP::YP_get_joint_ang(j.id_, &joint.position[i]);
-              const double t1 = YP::YP_get_joint_vel(j.id_, &joint.velocity[i]);
-              const double t2 = YP::YP_get_joint_torque(j.id_, &joint.effort[i]);
-
-              if (t0 != t1 || t1 != t2)
-              {
-                // Retry if updated during this joint
-                t = -1.0;
-                break;
-              }
-              if (t < 0.0)
-              {
-                t = t0;
-              }
-              else if (t != t0)
-              {
-                // Retry if updated during loops
-                t = -1.0;
-                break;
-              }
-              i++;
+              // Retry if updated during this joint
+              t = -1.0;
+              break;
             }
-          }
-          if (t <= 0.0)
-            break;
-          joint.header.stamp = ros::Time(t);
-        }
-        else
-        {
-          t = ros::Time::now().toSec();
-          for (unsigned int i = 0; i < joints_.size(); i++)
-          {
-            auto vel_prev = joint.velocity[i];
-            switch (joints_[i].control_)
+            if (t < 0.0)
             {
-              case JointParams::STOP:
-                break;
-              case JointParams::TRAJECTORY:
-              case JointParams::POSITION:
-              case JointParams::VELOCITY:
-                switch (joints_[i].control_)
-                {
-                  case JointParams::POSITION:
-                  {
-                    float position_err = joints_[i].angle_ref_ - joint.position[i];
-                    joints_[i].vel_ref_ = sqrtf(2.0 * joints_[i].accel_ * fabs(position_err));
-                    if (joints_[i].vel_ref_ > joints_[i].vel_)
-                      joints_[i].vel_ref_ = joints_[i].vel_;
-                    if (position_err < 0)
-                      joints_[i].vel_ref_ = -joints_[i].vel_ref_;
-                  }
-                  break;
-                  case JointParams::TRAJECTORY:
-                  {
-                    float position_err = joints_[i].angle_ref_ - joint.position[i];
-                    float v_sq = joints_[i].vel_end_ * joints_[i].vel_end_ + 2.0 * joints_[i].accel_ * position_err;
-                    joints_[i].vel_ref_ = sqrtf(fabs(v_sq));
-
-                    float vel_max;
-                    if (fabs(joints_[i].vel_) < fabs(joints_[i].vel_end_))
-                    {
-                      if (fabs(position_err) <
-                          (joints_[i].vel_end_ * joints_[i].vel_end_ - joints_[i].vel_ * joints_[i].vel_) /
-                              (2.0 * joints_[i].accel_))
-                        vel_max = fabs(joints_[i].vel_end_);
-                      else
-                        vel_max = joints_[i].vel_;
-                    }
-                    else
-                      vel_max = joints_[i].vel_;
-
-                    if (joints_[i].vel_ref_ > vel_max)
-                      joints_[i].vel_ref_ = vel_max;
-                    if (position_err < 0)
-                      joints_[i].vel_ref_ = -joints_[i].vel_ref_;
-                  }
-                  break;
-                  default:
-                    break;
-                }
-                joint.velocity[i] = joints_[i].vel_ref_;
-                if (joint.velocity[i] < vel_prev - dt * joints_[i].accel_)
-                {
-                  joint.velocity[i] = vel_prev - dt * joints_[i].accel_;
-                }
-                else if (joint.velocity[i] > vel_prev + dt * joints_[i].accel_)
-                {
-                  joint.velocity[i] = vel_prev + dt * joints_[i].accel_;
-                }
-                joint.position[i] += joint.velocity[i] * dt;
-                break;
+              t = t0;
             }
+            else if (t != t0)
+            {
+              // Retry if updated during loops
+              t = -1.0;
+              break;
+            }
+            i++;
           }
-          joint.header.stamp = ros::Time(t);
         }
+        if (t <= 0.0)
+          break;
+        joint.header.stamp = ros::Time(t);
 
         if (!avoid_publishing_duplicated_joints_ || (joint.header.stamp > previous_joints_stamp_))
         {
           pubs_["joint"].publish(joint);
           previous_joints_stamp_ = joint.header.stamp;
         }
-
 
         for (unsigned int i = 0; i < joints_.size(); i++)
         {
