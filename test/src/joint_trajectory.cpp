@@ -64,7 +64,7 @@ TEST(JointTrajectory, CommandValidation)
 
   // Publish valid command
   trajectory_msgs::JointTrajectory cmd;
-  cmd.header.stamp = clock.clock;
+  cmd.header.stamp = ros::Time::now();
   cmd.joint_names.resize(1);
   cmd.joint_names[0] = "joint0";
   cmd.points.resize(1);
@@ -91,7 +91,7 @@ TEST(JointTrajectory, CommandValidation)
       << "Valid joint_trajectory must not be ignored";
 
   // Stop
-  cmd.header.stamp = clock.clock;
+  cmd.header.stamp = ros::Time::now();
   cmd.points[0].positions[0] = 0.0;
   cmd.points[0].velocities[0] = 0.0;
   pub_cmd.publish(cmd);
@@ -105,7 +105,7 @@ TEST(JointTrajectory, CommandValidation)
       << "Valid joint_trajectory must not be ignored";
 
   // Publish outdated command
-  cmd.header.stamp = clock.clock - ros::Duration(2.0);
+  cmd.header.stamp = ros::Time::now() - ros::Duration(2.0);
   cmd.points[0].positions[0] = 1.0;
   cmd.points[0].velocities[0] = 1.0;
   pub_cmd.publish(cmd);
