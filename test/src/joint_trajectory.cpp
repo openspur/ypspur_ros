@@ -38,13 +38,10 @@
 TEST(JointTrajectory, CommandValidation)
 {
   ros::WallDuration wait(0.05);
-  ros::Duration clock_step(0.05);
 
   ros::NodeHandle nh;
   ros::Publisher pub_cmd =
       nh.advertise<trajectory_msgs::JointTrajectory>("joint_trajectory", 1, true);
-  ros::Publisher pub_clock =
-      nh.advertise<rosgraph_msgs::Clock>("clock", 100);
 
   sensor_msgs::JointState::ConstPtr joint_states;
   const boost::function<void(const sensor_msgs::JointState::ConstPtr&)> cb_joint =
@@ -55,15 +52,9 @@ TEST(JointTrajectory, CommandValidation)
   ros::Subscriber sub_joint_states =
       nh.subscribe("joint_states", 100, cb_joint);
 
-  rosgraph_msgs::Clock clock;
-  clock.clock.fromNSec(ros::WallTime::now().toNSec());
-  pub_clock.publish(clock);
-
   // Wait until ypspur_ros
   for (int i = 0; i < 20 * 30; ++i)
   {
-    clock.clock += clock_step;
-    pub_clock.publish(clock);
     wait.sleep();
     ros::spinOnce();
     if (joint_states)
@@ -87,8 +78,6 @@ TEST(JointTrajectory, CommandValidation)
 
   for (int i = 0; i < 50; ++i)
   {
-    clock.clock += clock_step;
-    pub_clock.publish(clock);
     wait.sleep();
     ros::spinOnce();
   }
@@ -109,8 +98,6 @@ TEST(JointTrajectory, CommandValidation)
   wait.sleep();
   for (int i = 0; i < 50; ++i)
   {
-    clock.clock += clock_step;
-    pub_clock.publish(clock);
     wait.sleep();
     ros::spinOnce();
   }
@@ -125,8 +112,6 @@ TEST(JointTrajectory, CommandValidation)
   wait.sleep();
   for (int i = 0; i < 50; ++i)
   {
-    clock.clock += clock_step;
-    pub_clock.publish(clock);
     wait.sleep();
     ros::spinOnce();
   }

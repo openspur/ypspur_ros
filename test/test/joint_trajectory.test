@@ -1,7 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-  <param name="use_sim_time" value="true" />
-
   <test test-name="test_joint_trajectory" pkg="ypspur_ros" type="test_joint_trajectory" />
   
   <node pkg="ypspur_ros" type="ypspur_ros" name="ypspur_ros">
