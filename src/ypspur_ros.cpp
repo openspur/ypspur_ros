@@ -641,10 +641,13 @@ public:
       {
         std::vector<std::string> args =
             {
-              ypspur_bin_,
-              "-d", port_,
-              "--admask", ad_mask,
-              "--msq-key", std::to_string(key_)
+                ypspur_bin_,
+                "-d",
+                port_,
+                "--admask",
+                ad_mask,
+                "--msq-key",
+                std::to_string(key_),
             };
         if (digital_input_enable_)
           args.push_back(std::string("--enable-get-digital-io"));
@@ -1037,7 +1040,6 @@ public:
           pubs_["joint"].publish(joint);
           previous_joints_stamp_ = joint.header.stamp;
         }
-
 
         for (unsigned int i = 0; i < joints_.size(); i++)
         {
