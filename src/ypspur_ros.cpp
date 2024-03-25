@@ -645,9 +645,13 @@ public:
         std::vector<std::string> args =
             {
                 ypspur_bin_,
-                "-d", port_,
-                "--admask", ad_mask,
-                "--msq-key", std::to_string(key_)};
+                "-d",
+                port_,
+                "--admask",
+                ad_mask,
+                "--msq-key",
+                std::to_string(key_),
+            };
         if (digital_input_enable_)
           args.push_back(std::string("--enable-get-digital-io"));
         if (simulate_)
