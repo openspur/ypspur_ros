@@ -10,8 +10,8 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the copyright holder nor the names of its 
- *       contributors may be used to endorse or promote products derived from 
+ *     * Neither the name of the copyright holder nor the names of its
+ *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -37,14 +37,11 @@
 
 TEST(JointTrajectory, CommandValidation)
 {
-  ros::WallDuration wait(0.005);
-  ros::Duration clock_step(0.05);
+  ros::WallDuration wait(0.05);
 
   ros::NodeHandle nh;
   ros::Publisher pub_cmd =
       nh.advertise<trajectory_msgs::JointTrajectory>("joint_trajectory", 1, true);
-  ros::Publisher pub_clock =
-      nh.advertise<rosgraph_msgs::Clock>("clock", 100);
 
   sensor_msgs::JointState::ConstPtr joint_states;
   const boost::function<void(const sensor_msgs::JointState::ConstPtr&)> cb_joint =
@@ -55,15 +52,9 @@ TEST(JointTrajectory, CommandValidation)
   ros::Subscriber sub_joint_states =
       nh.subscribe("joint_states", 100, cb_joint);
 
-  rosgraph_msgs::Clock clock;
-  clock.clock.fromNSec(ros::WallTime::now().toNSec());
-  pub_clock.publish(clock);
-
   // Wait until ypspur_ros
-  for (int i = 0; i < 200 * 30; ++i)
+  for (int i = 0; i < 20 * 30; ++i)
   {
-    clock.clock += clock_step;
-    pub_clock.publish(clock);
     wait.sleep();
     ros::spinOnce();
     if (joint_states)
@@ -73,7 +64,7 @@ TEST(JointTrajectory, CommandValidation)
 
   // Publish valid command
   trajectory_msgs::JointTrajectory cmd;
-  cmd.header.stamp = clock.clock;
+  cmd.header.stamp = ros::Time::now();
   cmd.joint_names.resize(1);
   cmd.joint_names[0] = "joint0";
   cmd.points.resize(1);
@@ -87,8 +78,6 @@ TEST(JointTrajectory, CommandValidation)
 
   for (int i = 0; i < 50; ++i)
   {
-    clock.clock += clock_step;
-    pub_clock.publish(clock);
     wait.sleep();
     ros::spinOnce();
   }
@@ -102,15 +91,13 @@ TEST(JointTrajectory, CommandValidation)
       << "Valid joint_trajectory must not be ignored";
 
   // Stop
-  cmd.header.stamp = clock.clock;
+  cmd.header.stamp = ros::Time::now();
   cmd.points[0].positions[0] = 0.0;
   cmd.points[0].velocities[0] = 0.0;
   pub_cmd.publish(cmd);
   wait.sleep();
   for (int i = 0; i < 50; ++i)
   {
-    clock.clock += clock_step;
-    pub_clock.publish(clock);
     wait.sleep();
     ros::spinOnce();
   }
@@ -118,15 +105,13 @@ TEST(JointTrajectory, CommandValidation)
       << "Valid joint_trajectory must not be ignored";
 
   // Publish outdated command
-  cmd.header.stamp = clock.clock - ros::Duration(2.0);
+  cmd.header.stamp = ros::Time::now() - ros::Duration(2.0);
   cmd.points[0].positions[0] = 1.0;
   cmd.points[0].velocities[0] = 1.0;
   pub_cmd.publish(cmd);
   wait.sleep();
   for (int i = 0; i < 50; ++i)
   {
-    clock.clock += clock_step;
-    pub_clock.publish(clock);
     wait.sleep();
     ros::spinOnce();
   }
