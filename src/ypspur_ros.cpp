@@ -97,6 +97,7 @@ private:
   std::map<std::string, double> params_;
   int key_;
   bool simulate_;
+  bool wait_convergence_of_joint_trajectory_angle_vel_;
 
   double tf_time_offset_;
 
@@ -451,6 +452,8 @@ public:
       ROS_WARN("simulate_control parameter is deprecated. Use simulate parameter instead");
       simulate_ = true;
     }
+    pnh_.param(
+        "wait_convergence_of_joint_trajectory_angle_vel", wait_convergence_of_joint_trajectory_angle_vel_, true);
     pnh_.param("ypspur_bin", ypspur_bin_, std::string("ypspur-coordinator"));
     pnh_.param("param_file", param_file_, std::string(""));
     pnh_.param("tf_time_offset", tf_time_offset_, 0.0);
@@ -1099,7 +1102,8 @@ public:
 
           if (done)
           {
-            if ((joints_[jid].vel_end_ > 0.0 &&
+            if (!wait_convergence_of_joint_trajectory_angle_vel_ ||
+                (joints_[jid].vel_end_ > 0.0 &&
                  joints_[jid].angle_ref_ > joint.position[jid] &&
                  joints_[jid].angle_ref_ < joint.position[jid] + joints_[jid].vel_ref_ * dt) ||
                 (joints_[jid].vel_end_ < 0.0 &&
@@ -1108,6 +1112,7 @@ public:
             {
               joints_[jid].control_ = JointParams::VELOCITY;
               joints_[jid].vel_ref_ = joints_[jid].vel_end_;
+              YP::YP_joint_vel(joints_[jid].id_, joints_[jid].vel_ref_);
             }
           }
         }
