@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.0 (2024-03-28)
+------------------
 * Add option to wait convergence of joint trajectory angle and velocity (`#122 <https://github.com/openspur/ypspur_ros/issues/122>`_)
 * Use control simulation in yp-spur instead of ypspur_ros (`#120 <https://github.com/openspur/ypspur_ros/issues/120>`_)
 * Fix code format (`#121 <https://github.com/openspur/ypspur_ros/issues/121>`_)
