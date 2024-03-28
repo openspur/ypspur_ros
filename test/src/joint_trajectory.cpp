@@ -117,6 +117,32 @@ TEST(JointTrajectory, CommandValidation)
   }
   ASSERT_NEAR(joint_states->velocity[0], 0.0, 0.1)
       << "Outdated joint_trajectory must be ignored";
+
+  // Publish overshoot command
+  cmd.header.stamp = ros::Time::now();
+  cmd.joint_names.resize(1);
+  cmd.joint_names[0] = "joint0";
+  cmd.points.resize(1);
+  cmd.points[0].time_from_start = ros::Duration(1);
+  cmd.points[0].positions.resize(1);
+  cmd.points[0].positions[0] = 1.0;
+  cmd.points[0].velocities.resize(1);
+  cmd.points[0].velocities[0] = 4.0;
+  pub_cmd.publish(cmd);
+  wait.sleep();
+
+  for (int i = 0; i < 50; ++i)
+  {
+    wait.sleep();
+    ros::spinOnce();
+  }
+
+  ASSERT_TRUE(static_cast<bool>(joint_states));
+  ASSERT_EQ(joint_states->name.size(), 1u);
+  ASSERT_EQ(joint_states->name[0], "joint0");
+  ASSERT_EQ(joint_states->velocity.size(), 1u);
+  ASSERT_NEAR(joint_states->velocity[0], 4.0, 0.1)
+      << "Joint velocity should be near the target value";
 }
 
 int main(int argc, char** argv)

@@ -8,5 +8,6 @@
     <param name="param_file" value="$(find ypspur_ros)/test/config/test.param" />
     <param name="joint0_enable" value="true" />
     <param name="hz" value="20.0" />
+    <param name="wait_convergence_of_joint_trajectory_angle_vel" value="false" />
   </node>
 </launch>
