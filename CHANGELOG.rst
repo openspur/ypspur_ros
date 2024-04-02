@@ -2,6 +2,11 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add option to stop control on system time jump (`#125 <https://github.com/openspur/ypspur_ros/issues/125>`_)
+* Contributors: Atsushi Watanabe
+
 0.4.0 (2024-03-28)
 ------------------
 * Add option to wait convergence of joint trajectory angle and velocity (`#122 <https://github.com/openspur/ypspur_ros/issues/122>`_)
