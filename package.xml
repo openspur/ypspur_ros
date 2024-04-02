@@ -27,5 +27,5 @@
   <depend>tf2_geometry_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>trajectory_msgs</depend>
-  <depend version_gte="1.21.0">ypspur</depend>
+  <depend version_gte="1.22.0">ypspur</depend>
 </package>

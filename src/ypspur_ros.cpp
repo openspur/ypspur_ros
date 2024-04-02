@@ -454,6 +454,8 @@ public:
     }
     pnh_.param(
         "wait_convergence_of_joint_trajectory_angle_vel", wait_convergence_of_joint_trajectory_angle_vel_, true);
+    bool exit_on_time_jump;
+    pnh_.param("exit_on_time_jump", exit_on_time_jump, false);
     pnh_.param("ypspur_bin", ypspur_bin_, std::string("ypspur-coordinator"));
     pnh_.param("param_file", param_file_, std::string(""));
     pnh_.param("tf_time_offset", tf_time_offset_, 0.0);
@@ -659,6 +661,8 @@ public:
           args.push_back(std::string("--enable-get-digital-io"));
         if (simulate_)
           args.push_back(std::string("--without-device"));
+        if (exit_on_time_jump)
+          args.push_back(std::string("--exit-on-time-jump"));
         if (param_file_.size() > 0)
         {
           args.push_back(std::string("-p"));
