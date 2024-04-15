@@ -149,6 +149,7 @@ private:
     bool output_;
   };
   bool digital_input_enable_;
+  bool digital_input_discrete_;
   std::vector<AdParams> ads_;
   std::vector<DioParams> dios_;
   const int ad_num_ = 8;
@@ -482,6 +483,9 @@ public:
           pnh_, "ad/" + ads_[i].name_, 1);
     }
     digital_input_enable_ = false;
+    pnh_.param("descrete_input", digital_input_discrete_, false);
+    if (digital_input_discrete_)
+      ROS_INFO("Digital input publish separatly");
     dio_output_default_ = 0;
     dio_dir_default_ = 0;
     dios_.resize(dio_num_);
@@ -506,6 +510,12 @@ public:
               nh_, param.name_,
               pnh_, param.name_, 1,
               boost::bind(&YpspurRosNode::cbDigitalOutput, this, _1, i));
+        }
+        else if (digital_input_discrete_ && param.input_)
+        {
+          pubs_["di/" + param.name_] = compat::advertise<std_msgs::Bool>(
+              nh_, "di/" + param.name_,
+              pnh_, "di/" + param.name_, 1);
         }
 
         std::string output_default;
@@ -538,7 +548,7 @@ public:
     }
     dio_output_ = dio_output_default_;
     dio_dir_ = dio_dir_default_;
-    if (digital_input_enable_)
+    if (digital_input_enable_ && !digital_input_discrete_)
     {
       pubs_["din"] = compat::advertise<ypspur_ros::DigitalInput>(
           nh_, "digital_input",
@@ -1142,13 +1152,23 @@ public:
         {
           if (!dios_[i].enable_)
             continue;
-          din.name.push_back(dios_[i].name_);
-          if (in & (1 << i))
-            din.state.push_back(true);
-          else
-            din.state.push_back(false);
+          if (!digital_input_discrete_)
+          {
+            din.name.push_back(dios_[i].name_);
+            if (in & (1 << i))
+              din.state.push_back(true);
+            else
+              din.state.push_back(false);
+          }
+          else if (dios_[i].input_)
+          {
+            std_msgs::Bool di;
+            di.data = in & (1 << i);
+            pubs_["di/" + dios_[i].name_].publish(di);
+          }
         }
-        pubs_["din"].publish(din);
+        if (!digital_input_discrete_)
+          pubs_["din"].publish(din);
       }
 
       for (int i = 0; i < dio_num_; i++)
