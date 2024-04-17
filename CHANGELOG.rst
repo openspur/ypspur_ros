@@ -2,6 +2,11 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add option to publish digital input data separately (`#128 <https://github.com/openspur/ypspur_ros/issues/128>`_)
+* Contributors: Seiga Kiribayashi
+
 0.5.0 (2024-04-02)
 ------------------
 * Add option to stop control on system time jump (`#125 <https://github.com/openspur/ypspur_ros/issues/125>`_)
