@@ -485,7 +485,7 @@ public:
     digital_input_enable_ = false;
     pnh_.param("descrete_input", digital_input_discrete_, false);
     if (digital_input_discrete_)
-      ROS_INFO("Digital input publish separatly");
+      ROS_INFO("Digital input will be published separatly");
     dio_output_default_ = 0;
     dio_dir_default_ = 0;
     dios_.resize(dio_num_);
@@ -513,9 +513,7 @@ public:
         }
         else if (digital_input_discrete_ && param.input_)
         {
-          pubs_["di/" + param.name_] = compat::advertise<std_msgs::Bool>(
-              nh_, "di/" + param.name_,
-              pnh_, "di/" + param.name_, 1);
+          pubs_["di/" + param.name_] = nh_.advertise<std_msgs::Bool>("di/" + param.name_, 1);
         }
 
         std::string output_default;
