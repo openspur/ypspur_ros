@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.6.0 (2024-04-17)
+------------------
 * Add option to publish digital input data separately (`#128 <https://github.com/openspur/ypspur_ros/issues/128>`_)
 * Contributors: Seiga Kiribayashi
 
