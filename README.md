@@ -1,5 +1,8 @@
 # ypspur_ros
 
+> [!NOTE]
+> After official ROS 1 EOL, this package is released to [Alpine ROS](https://www.seqsense.org/alpine-ros).
+
 ## Package summary
 
 This package provides a ROS wrapper node for [YP-Spur](https://github.com/openspur/yp-spur) vehicle control backend. 
