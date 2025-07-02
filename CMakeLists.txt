@@ -95,6 +95,7 @@ install(TARGETS
 if(CATKIN_ENABLE_TESTING)
   add_subdirectory(test)
   find_package(roslint REQUIRED)
+  set(ROSLINT_CPP_OPTS "--filter=-build/c++11")
   roslint_cpp()
   roslint_add_test()
 endif()
