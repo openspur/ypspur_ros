@@ -810,23 +810,7 @@ public:
     odom_.twist.twist.linear.x = 0;
     odom_.twist.twist.linear.y = 0;
     odom_.twist.twist.angular.z = 0;
-  }
 
-  ~YpspurRosNode()
-  {
-    // Kill ypspur-coordinator if the communication is still active.
-    if (pid_ > 0 && YP::YP_get_error_state() == 0)
-    {
-      ROS_INFO("killing ypspur-coordinator (%d)", (int)pid_);
-      kill(pid_, SIGINT);
-      int status;
-      waitpid(pid_, &status, 0);
-      ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
-    }
-  }
-
-  bool spin()
-  {
     if (joints_.size() > 0)
     {
       joint_.header.frame_id = std::string("");
@@ -845,7 +829,23 @@ public:
         joint_.effort[i] = 0;
       }
     }
+  }
 
+  ~YpspurRosNode()
+  {
+    // Kill ypspur-coordinator if the communication is still active.
+    if (pid_ > 0 && YP::YP_get_error_state() == 0)
+    {
+      ROS_INFO("killing ypspur-coordinator (%d)", (int)pid_);
+      kill(pid_, SIGINT);
+      int status;
+      waitpid(pid_, &status, 0);
+      ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
+    }
+  }
+
+  bool spin()
+  {
     ROS_INFO("ypspur_ros main loop started");
     ros::Rate loop(params_["hz"]);
     while (!g_shutdown)
