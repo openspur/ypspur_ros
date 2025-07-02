@@ -60,9 +60,11 @@
 #include <boost/thread.hpp>
 #include <boost/thread/future.hpp>
 
+#include <atomic>
 #include <exception>
 #include <map>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <compatibility.h>
@@ -70,6 +72,7 @@
 namespace YP
 {
 #include <ypspur.h>
+#include <ypspur/ypspur-coordinator.h>
 }  // namespace YP
 
 bool g_shutdown = false;
@@ -101,7 +104,9 @@ private:
 
   double tf_time_offset_;
 
-  pid_t pid_;
+  std::shared_ptr<std::thread> thread_coordinator_;
+  std::atomic_bool coordinator_exited_;
+  std::atomic_int coordinator_exit_code_;
 
   enum OdometryMode
   {
@@ -650,7 +655,7 @@ public:
     pubs_["diag"] = nh_.advertise<diagnostic_msgs::DiagnosticArray>(
         "/diagnostics", 1);
 
-    pid_ = 0;
+    thread_coordinator_.reset();
     for (int i = 0; i < 2; i++)
     {
       if (i > 0 || YP::YPSpur_initex(key_) < 0)
@@ -685,51 +690,44 @@ public:
           argv[i][args[i].size()] = 0;
         }
         argv[args.size()] = nullptr;
+        int argc = static_cast<int>(args.size());
 
         int msq = msgget(key_, 0666 | IPC_CREAT);
         msgctl(msq, IPC_RMID, nullptr);
 
         ROS_WARN("launching ypspur-coordinator");
-        pid_ = fork();
-        if (pid_ == -1)
+        const auto fn_coordinator = [argc, argv]
         {
-          const int err = errno;
-          throw(std::runtime_error(std::string("failed to fork process: ") + strerror(err)));
-        }
-        else if (pid_ == 0)
-        {
-          execvp(ypspur_bin_.c_str(), argv);
-          throw(std::runtime_error("failed to start ypspur-coordinator"));
-        }
+          const int ret = YP::ypsc_main(argc, argv);
+          coordinator_exit_code_ = ret;
+          coordinator_exited_ = true;
 
-        for (unsigned int i = 0; i < args.size(); i++)
-          delete argv[i];
-        delete argv;
+          for (int i = 0; i < argc; i++)
+          {
+            delete argv[i];
+          }
+          delete argv;
+        };
+        coordinator_exited_ = false;
+        thread_coordinator_.reset(new std::thread(fn_coordinator));
 
         for (int i = 4; i >= 0; i--)
         {
-          int status;
-          if (waitpid(pid_, &status, WNOHANG) == pid_)
+          if (coordinator_exited_)
           {
-            if (WIFSIGNALED(status))
-            {
-              throw(std::runtime_error(
-                  "ypspur-coordinator dead immediately by signal " + std::to_string(WTERMSIG(status))));
-            }
-            if (WIFEXITED(status))
-            {
-              throw(std::runtime_error(
-                  "ypspur-coordinator dead immediately with exit code " + std::to_string(WEXITSTATUS(status))));
-            }
-            throw(std::runtime_error("ypspur-coordinator dead immediately"));
-          }
-          else if (i == 0)
-          {
-            throw(std::runtime_error("failed to init libypspur"));
+            throw(std::runtime_error(
+                "ypspur-coordinator dead immediately with exit code " +
+                std::to_string(coordinator_exit_code_.load())));
           }
           ros::WallDuration(1).sleep();
           if (YP::YPSpur_initex(key_) >= 0)
+          {
             break;
+          }
+          if (i == 0)
+          {
+            throw(std::runtime_error("failed to init libypspur"));
+          }
         }
       }
       double ret;
@@ -793,13 +791,12 @@ public:
   ~YpspurRosNode()
   {
     // Kill ypspur-coordinator if the communication is still active.
-    if (pid_ > 0 && YP::YP_get_error_state() == 0)
+    if (thread_coordinator_ && !coordinator_exited_)
     {
-      ROS_INFO("killing ypspur-coordinator (%d)", (int)pid_);
-      kill(pid_, SIGINT);
-      int status;
-      waitpid(pid_, &status, 0);
-      ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
+      ROS_INFO("stopping ypspur-coordinator");
+      YP::ypsc_kill();
+      thread_coordinator_.join();
+      ROS_INFO("ypspur-coordinator is stopped (exit code: %d)", coordinator_exit_code_);
     }
   }
   bool spin()
