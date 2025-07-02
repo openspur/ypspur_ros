@@ -1184,26 +1184,10 @@ public:
       ros::spinOnce();
       loop.sleep();
 
-      int status;
-      if (waitpid(pid_, &status, WNOHANG) == pid_)
+      if (coordinator_exited_.load())
       {
-        if (WIFEXITED(status))
-        {
-          ROS_ERROR("ypspur-coordinator exited");
-        }
-        else
-        {
-          if (WIFSTOPPED(status))
-          {
-            ROS_ERROR("ypspur-coordinator dead with signal %d",
-                      WSTOPSIG(status));
-          }
-          else
-          {
-            ROS_ERROR("ypspur-coordinator dead");
-          }
-          updateDiagnostics(now, true);
-        }
+        ROS_ERROR("ypspur-coordinator is stopped (exit code: %d)", coordinator_exit_code_.load());
+        updateDiagnostics(now, true);
         break;
       }
     }
