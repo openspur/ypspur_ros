@@ -696,7 +696,7 @@ public:
         msgctl(msq, IPC_RMID, nullptr);
 
         ROS_WARN("launching ypspur-coordinator");
-        const auto fn_coordinator = [argc, argv]
+        const auto fn_coordinator = [this, argc, argv]
         {
           const int ret = YP::ypsc_main(argc, argv);
           coordinator_exit_code_ = ret;
