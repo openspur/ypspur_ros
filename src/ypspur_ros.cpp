@@ -197,6 +197,7 @@ private:
         break;
     }
   }
+
   void cbCmdVel(const geometry_msgs::Twist::ConstPtr& msg)
   {
     cmd_vel_ = msg;
@@ -206,6 +207,7 @@ private:
       YP::YPSpur_vel(msg->linear.x, msg->angular.z);
     }
   }
+
   void cbJoint(const trajectory_msgs::JointTrajectory::ConstPtr& msg)
   {
     const ros::Time now = ros::Time::now();
@@ -262,18 +264,21 @@ private:
       joints_[joint_num].cmd_joint_ = new_cmd_joint.second;
     }
   }
+
   void cbSetVel(const std_msgs::Float32::ConstPtr& msg, int num)
   {
     // printf("set_vel %d %d %f\n", num, joints_[num].id_, msg->data);
     joints_[num].vel_ = msg->data;
     YP::YP_set_joint_vel(joints_[num].id_, joints_[num].vel_);
   }
+
   void cbSetAccel(const std_msgs::Float32::ConstPtr& msg, int num)
   {
     // printf("set_accel %d %d %f\n", num, joints_[num].id_, msg->data);
     joints_[num].accel_ = msg->data;
     YP::YP_set_joint_accel(joints_[num].id_, joints_[num].accel_);
   }
+
   void cbVel(const std_msgs::Float32::ConstPtr& msg, int num)
   {
     // printf("vel_ %d %d %f\n", num, joints_[num].id_, msg->data);
@@ -281,12 +286,14 @@ private:
     joints_[num].control_ = JointParams::VELOCITY;
     YP::YP_joint_vel(joints_[num].id_, joints_[num].vel_ref_);
   }
+
   void cbAngle(const std_msgs::Float32::ConstPtr& msg, int num)
   {
     joints_[num].angle_ref_ = msg->data;
     joints_[num].control_ = JointParams::POSITION;
     YP::YP_joint_ang(joints_[num].id_, joints_[num].angle_ref_);
   }
+
   void cbJointPosition(const ypspur_ros::JointPositionControl::ConstPtr& msg)
   {
     int i = 0;
@@ -349,6 +356,7 @@ private:
       dio_revert_[id_] = ros::Time::now() + msg->toggle_time;
     }
   }
+
   void revertDigitalOutput(int id_)
   {
     const auto dio_output_prev = dio_output_;
@@ -367,6 +375,7 @@ private:
 
     dio_revert_[id_] = ros::Time(0);
   }
+
   void updateDiagnostics(const ros::Time& now, const bool connection_down = false)
   {
     const int connection_error = connection_down ? 1 : YP::YP_get_error_state();
