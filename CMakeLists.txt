@@ -63,6 +63,7 @@ add_executable(ypspur_ros src/ypspur_ros.cpp)
 target_link_libraries(ypspur_ros
   ${catkin_LIBRARIES}
   ypspur
+  ypspur-coordinator
 )
 add_dependencies(ypspur_ros ${ypspur_ros_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
