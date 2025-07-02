@@ -176,6 +176,11 @@ private:
   ros::Time previous_joints_stamp_;
   ros::Time previous_odom_stamp_;
 
+  geometry_msgs::TransformStamped odom_trans_;
+  nav_msgs::Odometry odom_;
+  std::map<int, geometry_msgs::TransformStamped> joint_trans_;
+  sensor_msgs::JointState joint_;
+
   void cbControlMode(const ypspur_ros::ControlMode::ConstPtr& msg)
   {
     control_mode_ = msg->vehicle_control_mode;
@@ -789,7 +794,24 @@ public:
 
     YP::YP_set_io_data(dio_output_);
     YP::YP_set_io_dir(dio_dir_);
+
+    odom_trans_.header.frame_id = frames_["odom"];
+    odom_trans_.child_frame_id = frames_["base_link"];
+
+    geometry_msgs::WrenchStamped wrench;
+    odom_.header.frame_id = frames_["odom"];
+    odom_.child_frame_id = frames_["base_link"];
+    wrench.header.frame_id = frames_["base_link"];
+
+    odom_.pose.pose.position.x = 0;
+    odom_.pose.pose.position.y = 0;
+    odom_.pose.pose.position.z = 0;
+    odom_.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, 0));
+    odom_.twist.twist.linear.x = 0;
+    odom_.twist.twist.linear.y = 0;
+    odom_.twist.twist.angular.z = 0;
   }
+
   ~YpspurRosNode()
   {
     // Kill ypspur-coordinator if the communication is still active.
@@ -802,44 +824,25 @@ public:
       ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
     }
   }
+
   bool spin()
   {
-    geometry_msgs::TransformStamped odom_trans;
-    odom_trans.header.frame_id = frames_["odom"];
-    odom_trans.child_frame_id = frames_["base_link"];
-
-    nav_msgs::Odometry odom;
-    geometry_msgs::WrenchStamped wrench;
-    odom.header.frame_id = frames_["odom"];
-    odom.child_frame_id = frames_["base_link"];
-    wrench.header.frame_id = frames_["base_link"];
-
-    odom.pose.pose.position.x = 0;
-    odom.pose.pose.position.y = 0;
-    odom.pose.pose.position.z = 0;
-    odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, 0));
-    odom.twist.twist.linear.x = 0;
-    odom.twist.twist.linear.y = 0;
-    odom.twist.twist.angular.z = 0;
-
-    std::map<int, geometry_msgs::TransformStamped> joint_trans;
-    sensor_msgs::JointState joint;
     if (joints_.size() > 0)
     {
-      joint.header.frame_id = std::string("");
-      joint.velocity.resize(joints_.size());
-      joint.position.resize(joints_.size());
-      joint.effort.resize(joints_.size());
+      joint_.header.frame_id = std::string("");
+      joint_.velocity.resize(joints_.size());
+      joint_.position.resize(joints_.size());
+      joint_.effort.resize(joints_.size());
       for (auto& j : joints_)
-        joint.name.push_back(j.name_);
+        joint_.name.push_back(j.name_);
 
       for (unsigned int i = 0; i < joints_.size(); i++)
       {
-        joint_trans[i].header.frame_id = joints_[i].name_ + std::string("_in");
-        joint_trans[i].child_frame_id = joints_[i].name_ + std::string("_out");
-        joint.velocity[i] = 0;
-        joint.position[i] = 0;
-        joint.effort[i] = 0;
+        joint_trans_[i].header.frame_id = joints_[i].name_ + std::string("_in");
+        joint_trans_[i].child_frame_id = joints_[i].name_ + std::string("_out");
+        joint_.velocity[i] = 0;
+        joint_.position[i] = 0;
+        joint_.effort[i] = 0;
       }
     }
 
@@ -874,24 +877,24 @@ public:
         const ros::Time current_stamp(t);
         if (!avoid_publishing_duplicated_odom_ || (current_stamp > previous_odom_stamp_))
         {
-          odom.header.stamp = current_stamp;
-          odom.pose.pose.position.x = x;
-          odom.pose.pose.position.y = y;
-          odom.pose.pose.position.z = 0;
-          odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, yaw));
-          odom.twist.twist.linear.x = v;
-          odom.twist.twist.linear.y = 0;
-          odom.twist.twist.angular.z = w;
-          pubs_["odom"].publish(odom);
+          odom_.header.stamp = current_stamp;
+          odom_.pose.pose.position.x = x;
+          odom_.pose.pose.position.y = y;
+          odom_.pose.pose.position.z = 0;
+          odom_.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, yaw));
+          odom_.twist.twist.linear.x = v;
+          odom_.twist.twist.linear.y = 0;
+          odom_.twist.twist.angular.z = w;
+          pubs_["odom"].publish(odom_);
 
           if (publish_odom_tf_)
           {
-            odom_trans.header.stamp = current_stamp + ros::Duration(tf_time_offset_);
-            odom_trans.transform.translation.x = x;
-            odom_trans.transform.translation.y = y;
-            odom_trans.transform.translation.z = 0;
-            odom_trans.transform.rotation = odom.pose.pose.orientation;
-            tf_broadcaster_.sendTransform(odom_trans);
+            odom_trans_.header.stamp = current_stamp + ros::Duration(tf_time_offset_);
+            odom_trans_.transform.translation.x = x;
+            odom_trans_.transform.translation.y = y;
+            odom_trans_.transform.translation.z = 0;
+            odom_trans_.transform.rotation = odom_.pose.pose.orientation;
+            tf_broadcaster_.sendTransform(odom_trans_);
           }
         }
         previous_odom_stamp_ = current_stamp;
@@ -938,9 +941,9 @@ public:
           int i = 0;
           for (auto& j : joints_)
           {
-            const double t0 = YP::YP_get_joint_ang(j.id_, &joint.position[i]);
-            const double t1 = YP::YP_get_joint_vel(j.id_, &joint.velocity[i]);
-            const double t2 = YP::YP_get_joint_torque(j.id_, &joint.effort[i]);
+            const double t0 = YP::YP_get_joint_ang(j.id_, &joint_.position[i]);
+            const double t1 = YP::YP_get_joint_vel(j.id_, &joint_.velocity[i]);
+            const double t2 = YP::YP_get_joint_torque(j.id_, &joint_.effort[i]);
 
             if (t0 != t1 || t1 != t2)
             {
@@ -963,19 +966,19 @@ public:
         }
         if (t <= 0.0)
           break;
-        joint.header.stamp = ros::Time(t);
+        joint_.header.stamp = ros::Time(t);
 
-        if (!avoid_publishing_duplicated_joints_ || (joint.header.stamp > previous_joints_stamp_))
+        if (!avoid_publishing_duplicated_joints_ || (joint_.header.stamp > previous_joints_stamp_))
         {
-          pubs_["joint"].publish(joint);
-          previous_joints_stamp_ = joint.header.stamp;
+          pubs_["joint"].publish(joint_);
+          previous_joints_stamp_ = joint_.header.stamp;
         }
 
         for (unsigned int i = 0; i < joints_.size(); i++)
         {
-          joint_trans[i].transform.rotation = tf2::toMsg(tf2::Quaternion(z_axis_, joint.position[i]));
-          joint_trans[i].header.stamp = ros::Time(t) + ros::Duration(tf_time_offset_);
-          tf_broadcaster_.sendTransform(joint_trans[i]);
+          joint_trans_[i].transform.rotation = tf2::toMsg(tf2::Quaternion(z_axis_, joint_.position[i]));
+          joint_trans_[i].header.stamp = ros::Time(t) + ros::Duration(tf_time_offset_);
+          tf_broadcaster_.sendTransform(joint_trans_[i]);
         }
 
         for (unsigned int jid = 0; jid < joints_.size(); jid++)
@@ -997,9 +1000,9 @@ public:
               continue;
             done = false;
 
-            double ang_err = cmd.positions[0] - joint.position[jid];
+            double ang_err = cmd.positions[0] - joint_.position[jid];
             double& vel_end_ = cmd.velocities[0];
-            double& vel_start = joint.velocity[jid];
+            double& vel_start = joint_.velocity[jid];
             auto t_left = cmd.time_from_start - t;
 
             double v;
@@ -1116,11 +1119,11 @@ public:
           {
             if (!wait_convergence_of_joint_trajectory_angle_vel_ ||
                 (joints_[jid].vel_end_ > 0.0 &&
-                 joints_[jid].angle_ref_ > joint.position[jid] &&
-                 joints_[jid].angle_ref_ < joint.position[jid] + joints_[jid].vel_ref_ * dt) ||
+                 joints_[jid].angle_ref_ > joint_.position[jid] &&
+                 joints_[jid].angle_ref_ < joint_.position[jid] + joints_[jid].vel_ref_ * dt) ||
                 (joints_[jid].vel_end_ < 0.0 &&
-                 joints_[jid].angle_ref_ < joint.position[jid] &&
-                 joints_[jid].angle_ref_ > joint.position[jid] + joints_[jid].vel_ref_ * dt))
+                 joints_[jid].angle_ref_ < joint_.position[jid] &&
+                 joints_[jid].angle_ref_ > joint_.position[jid] + joints_[jid].vel_ref_ * dt))
             {
               joints_[jid].control_ = JointParams::VELOCITY;
               joints_[jid].vel_ref_ = joints_[jid].vel_end_;
