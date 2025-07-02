@@ -713,7 +713,7 @@ public:
 
         for (int i = 4; i >= 0; i--)
         {
-          if (coordinator_exited_)
+          if (coordinator_exited_.load())
           {
             throw(std::runtime_error(
                 "ypspur-coordinator dead immediately with exit code " +
@@ -791,12 +791,12 @@ public:
   ~YpspurRosNode()
   {
     // Kill ypspur-coordinator if the communication is still active.
-    if (thread_coordinator_ && !coordinator_exited_)
+    if (thread_coordinator_ && !coordinator_exited_.load())
     {
       ROS_INFO("stopping ypspur-coordinator");
       YP::ypsc_kill();
-      thread_coordinator_.join();
-      ROS_INFO("ypspur-coordinator is stopped (exit code: %d)", coordinator_exit_code_);
+      thread_coordinator_->join();
+      ROS_INFO("ypspur-coordinator is stopped (exit code: %d)", coordinator_exit_code_.load());
     }
   }
   bool spin()
