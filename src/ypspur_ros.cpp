@@ -178,6 +178,7 @@ private:
 
   geometry_msgs::TransformStamped odom_trans_;
   nav_msgs::Odometry odom_;
+  geometry_msgs::WrenchStamped wrench_;
   std::map<int, geometry_msgs::TransformStamped> joint_trans_;
   sensor_msgs::JointState joint_;
 
@@ -798,10 +799,9 @@ public:
     odom_trans_.header.frame_id = frames_["odom"];
     odom_trans_.child_frame_id = frames_["base_link"];
 
-    geometry_msgs::WrenchStamped wrench;
     odom_.header.frame_id = frames_["odom"];
     odom_.child_frame_id = frames_["base_link"];
-    wrench.header.frame_id = frames_["base_link"];
+    wrench_.header.frame_id = frames_["base_link"];
 
     odom_.pose.pose.position.x = 0;
     odom_.pose.pose.position.y = 0;
@@ -899,16 +899,16 @@ public:
         }
         previous_odom_stamp_ = current_stamp;
 
-        t = YP::YPSpur_get_force(&wrench.wrench.force.x, &wrench.wrench.torque.z);
+        t = YP::YPSpur_get_force(&wrench_.wrench.force.x, &wrench_.wrench.torque.z);
         if (t <= 0.0)
           break;
 
-        wrench.header.stamp = ros::Time(t);
-        wrench.wrench.force.y = 0;
-        wrench.wrench.force.z = 0;
-        wrench.wrench.torque.x = 0;
-        wrench.wrench.torque.y = 0;
-        pubs_["wrench"].publish(wrench);
+        wrench_.header.stamp = ros::Time(t);
+        wrench_.wrench.force.y = 0;
+        wrench_.wrench.force.z = 0;
+        wrench_.wrench.torque.x = 0;
+        wrench_.wrench.torque.y = 0;
+        pubs_["wrench"].publish(wrench_);
 
         if (frames_["origin"].length() > 0)
         {
