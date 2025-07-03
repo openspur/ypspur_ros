@@ -30,6 +30,7 @@
 #ifndef YPSPUR_ROS_DIRECT_YPSPUR_H
 #define YPSPUR_ROS_DIRECT_YPSPUR_H
 
+#include <cstdint>
 #include <functional>
 
 namespace YP
@@ -43,33 +44,29 @@ namespace direct_ypspur
 void registerOdometryHook(const std::function<void(const YP::OdometryPtr, const YP::ErrorStatePtr)> fn);
 void unregisterOdometryHook();
 
-/*
-// TODO(at-wat): implementing
-
 // System
-int YP_get_parameter(int param_id, double* value);
+double YP_get_parameter(const int param_id);
 
 // PWS Control
-int YPSpur_adjust_pos(int cs, double x, double y, double theta);
-int YPSpur_free(void);
-int YPSpur_set_accel(double v);
-int YPSpur_set_angaccel(double w);
-int YPSpur_set_angvel(double w);
-int YPSpur_set_vel(double v);
-int YPSpur_vel(double v, double w);
-int YP_openfree(void);
+void YPSpur_adjust_pos(const int cs, const double x, const double y, const double theta);
+void YPSpur_free();
+void YPSpur_set_accel(const double v);
+void YPSpur_set_angaccel(const double dw);
+void YPSpur_set_angvel(const double w);
+void YPSpur_set_vel(const double v);
+void YPSpur_vel(const double v, const double w);
+void YP_openfree();
 
 // Joint Control
-int YP_joint_ang(int id, double a);
-int YP_joint_ang_vel(int id, double a, double v);
-int YP_joint_vel(int id, double v);
-int YP_set_joint_accel(int id, double a);
-int YP_set_joint_vel(int id, double v);
+void YP_joint_ang(const int id, const double a);
+void YP_joint_ang_vel(const int id, const double a, const double v);
+void YP_joint_vel(const int id, const double v);
+void YP_set_joint_accel(const int id, const double a);
+void YP_set_joint_vel(const int id, const double v);
 
 // AUX
-int YP_set_io_data(unsigned char data);
-int YP_set_io_dir(unsigned char dir);
-*/
+void YP_set_io_data(const uint8_t data);
+void YP_set_io_dir(const uint8_t dir);
 }  // namespace direct_ypspur
 
 #endif  // YPSPUR_ROS_DIRECT_YPSPUR_H

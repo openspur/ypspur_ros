@@ -33,6 +33,7 @@
 
 namespace YP
 {
+#include <ypspur/ypparam.h>
 #include <ypspur/ypspur-coordinator.h>
 }  // namespace YP
 
@@ -61,5 +62,158 @@ void unregisterOdometryHook()
 {
   YP::ypsc_set_odometry_hook(nullptr);
   g_odometry_hook = nullptr;
+}
+
+double YP_get_parameter(const int param_id)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_PARAM_GET;
+  cmd.cs = param_id;
+  YP::ypsc_command(&cmd, &res);
+  return res.data[0];
+}
+
+void YPSpur_adjust_pos(const int cs, const double x, const double y, const double theta)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_ADJUST;
+  cmd.data[0] = x;
+  cmd.data[1] = y;
+  cmd.data[2] = theta;
+  cmd.cs = cs;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YPSpur_free()
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_FREE;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YPSpur_set_accel(const double dv)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_SET_ACCEL;
+  cmd.data[0] = dv;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YPSpur_set_angaccel(const double dw)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_SET_ANGACCEL;
+  cmd.data[0] = dw;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YPSpur_set_angvel(const double w)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_SET_ANGVEL;
+  cmd.data[0] = w;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YPSpur_set_vel(const double v)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_SET_VEL;
+  cmd.data[0] = v;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YPSpur_vel(const double v, const double w)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_VEL;
+  cmd.data[0] = v;
+  cmd.data[1] = w;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YP_openfree()
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_OPENFREE;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YP_joint_ang(const int id, const double a)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_JOINT_ANG;
+  cmd.cs = id;
+  cmd.data[0] = a;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YP_joint_ang_vel(const int id, const double a, const double v)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_JOINT_ANG_VEL;
+  cmd.cs = id;
+  cmd.data[0] = a;
+  cmd.data[1] = v;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YP_joint_vel(const int id, const double v)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_JOINT_VEL;
+  cmd.cs = id;
+  cmd.data[0] = v;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YP_set_joint_accel(const int id, const double a)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_SET_JOINT_ACCEL;
+  cmd.cs = id;
+  cmd.data[0] = a;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YP_set_joint_vel(const int id, const double v)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_SET_JOINT_VEL;
+  cmd.cs = id;
+  cmd.data[0] = v;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YP_set_io_data(const uint8_t data)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_SETIODATA;
+  cmd.data[0] = data;
+  YP::ypsc_command(&cmd, &res);
+}
+
+void YP_set_io_dir(const uint8_t dir)
+{
+  YP::YPSpur_msg cmd, res;
+  cmd.msg_type = YPSPUR_MSG_CMD;
+  cmd.type = YP::YPSPUR_SETIODIR;
+  cmd.data[0] = dir;
+  YP::ypsc_command(&cmd, &res);
 }
 }  // namespace direct_ypspur

@@ -74,7 +74,6 @@
 
 namespace YP
 {
-#include <ypspur.h>
 #include <ypspur/ypspur-coordinator.h>
 }  // namespace YP
 
@@ -171,6 +170,7 @@ private:
   int device_error_state_;
   int device_error_state_prev_;
   ros::Time device_error_state_time_;
+  ros::Time last_diag_update_time_;
 
   geometry_msgs::Twist::ConstPtr cmd_vel_;
   ros::Time cmd_vel_time_;
@@ -194,10 +194,10 @@ private:
     switch (control_mode_)
     {
       case ypspur_ros::ControlMode::OPEN:
-        YP::YP_openfree();
+        direct_ypspur::YP_openfree();
         break;
       case ypspur_ros::ControlMode::TORQUE:
-        YP::YPSpur_free();
+        direct_ypspur::YPSpur_free();
         break;
       case ypspur_ros::ControlMode::VELOCITY:
         break;
@@ -210,7 +210,7 @@ private:
     cmd_vel_time_ = ros::Time::now();
     if (control_mode_ == ypspur_ros::ControlMode::VELOCITY)
     {
-      YP::YPSpur_vel(msg->linear.x, msg->angular.z);
+      direct_ypspur::YPSpur_vel(msg->linear.x, msg->angular.z);
     }
   }
 
@@ -275,14 +275,14 @@ private:
   {
     // printf("set_vel %d %d %f\n", num, joints_[num].id_, msg->data);
     joints_[num].vel_ = msg->data;
-    YP::YP_set_joint_vel(joints_[num].id_, joints_[num].vel_);
+    direct_ypspur::YP_set_joint_vel(joints_[num].id_, joints_[num].vel_);
   }
 
   void cbSetAccel(const std_msgs::Float32::ConstPtr& msg, int num)
   {
     // printf("set_accel %d %d %f\n", num, joints_[num].id_, msg->data);
     joints_[num].accel_ = msg->data;
-    YP::YP_set_joint_accel(joints_[num].id_, joints_[num].accel_);
+    direct_ypspur::YP_set_joint_accel(joints_[num].id_, joints_[num].accel_);
   }
 
   void cbVel(const std_msgs::Float32::ConstPtr& msg, int num)
@@ -290,14 +290,14 @@ private:
     // printf("vel_ %d %d %f\n", num, joints_[num].id_, msg->data);
     joints_[num].vel_ref_ = msg->data;
     joints_[num].control_ = JointParams::VELOCITY;
-    YP::YP_joint_vel(joints_[num].id_, joints_[num].vel_ref_);
+    direct_ypspur::YP_joint_vel(joints_[num].id_, joints_[num].vel_ref_);
   }
 
   void cbAngle(const std_msgs::Float32::ConstPtr& msg, int num)
   {
     joints_[num].angle_ref_ = msg->data;
     joints_[num].control_ = JointParams::POSITION;
-    YP::YP_joint_ang(joints_[num].id_, joints_[num].angle_ref_);
+    direct_ypspur::YP_joint_ang(joints_[num].id_, joints_[num].angle_ref_);
   }
 
   void cbJointPosition(const ypspur_ros::JointPositionControl::ConstPtr& msg)
@@ -317,9 +317,9 @@ private:
       joints_[num].angle_ref_ = msg->positions[i];
       joints_[num].control_ = JointParams::POSITION;
 
-      YP::YP_set_joint_vel(joints_[num].id_, joints_[num].vel_);
-      YP::YP_set_joint_accel(joints_[num].id_, joints_[num].accel_);
-      YP::YP_joint_ang(joints_[num].id_, joints_[num].angle_ref_);
+      direct_ypspur::YP_set_joint_vel(joints_[num].id_, joints_[num].vel_);
+      direct_ypspur::YP_set_joint_accel(joints_[num].id_, joints_[num].accel_);
+      direct_ypspur::YP_joint_ang(joints_[num].id_, joints_[num].angle_ref_);
       i++;
     }
   }
@@ -353,9 +353,9 @@ private:
         break;
     }
     if (dio_output_ != dio_output_prev)
-      YP::YP_set_io_data(dio_output_);
+      direct_ypspur::YP_set_io_data(dio_output_);
     if (dio_dir_ != dio_dir_prev)
-      YP::YP_set_io_dir(dio_dir_);
+      direct_ypspur::YP_set_io_dir(dio_dir_);
 
     if (msg->toggle_time > ros::Duration(0))
     {
@@ -375,27 +375,23 @@ private:
     dio_dir_ |= dio_output_default_ & mask;
 
     if (dio_output_ != dio_output_prev)
-      YP::YP_set_io_data(dio_output_);
+      direct_ypspur::YP_set_io_data(dio_output_);
     if (dio_dir_ != dio_dir_prev)
-      YP::YP_set_io_dir(dio_dir_);
+      direct_ypspur::YP_set_io_dir(dio_dir_);
 
     dio_revert_[id_] = ros::Time(0);
   }
 
   void updateDiagnostics(const ros::Time& now, const bool connection_down = false)
   {
-    const int connection_error = connection_down ? 1 : YP::YP_get_error_state();
-    double t = 0;
+    std::lock_guard<std::mutex> guard(mutex_odom_);
 
-    int err = 0;
-    if (!connection_error)
-      t = YP::YP_get_device_error_state(0, &err);
-    device_error_state_ |= err;
+    const int connection_error =
+        coordinator_exited_.load() ? coordinator_exit_code_.load() : 0;
 
-    if (device_error_state_time_ + ros::Duration(1.0) < now || connection_down ||
+    if (last_diag_update_time_ + ros::Duration(1.0) < now || connection_down ||
         device_error_state_ != device_error_state_prev_)
     {
-      device_error_state_time_ = now;
       device_error_state_prev_ = device_error_state_;
 
       diagnostic_msgs::DiagnosticArray msg;
@@ -405,25 +401,16 @@ private:
       msg.status[0].hardware_id = "ipc-key" + std::to_string(key_);
       if (device_error_state_ == 0 && connection_error == 0)
       {
-        if (t == 0)
+        if (device_error_state_time_ + ros::Duration(1.0) < now)
         {
-          msg.status[0].level = diagnostic_msgs::DiagnosticStatus::OK;
+          msg.status[0].level = diagnostic_msgs::DiagnosticStatus::ERROR;
           msg.status[0].message = "Motor controller doesn't "
-                                  "provide device error state.";
+                                  "update latest device error state.";
         }
         else
         {
-          if (ros::Time(t) < now - ros::Duration(1.0))
-          {
-            msg.status[0].level = diagnostic_msgs::DiagnosticStatus::ERROR;
-            msg.status[0].message = "Motor controller doesn't "
-                                    "update latest device error state.";
-          }
-          else
-          {
-            msg.status[0].level = diagnostic_msgs::DiagnosticStatus::OK;
-            msg.status[0].message = "Motor controller is running without error.";
-          }
+          msg.status[0].level = diagnostic_msgs::DiagnosticStatus::OK;
+          msg.status[0].message = "Motor controller is running without error.";
         }
       }
       else
@@ -445,6 +432,7 @@ private:
       msg.status[0].values[1].value = std::to_string(device_error_state_);
 
       pubs_["diag"].publish(msg);
+      last_diag_update_time_ = now;
       device_error_state_ = 0;
     }
   }
@@ -452,6 +440,37 @@ private:
   void cbOdometryUpdate(const YP::OdometryPtr odom, const YP::ErrorStatePtr err)
   {
     std::lock_guard<std::mutex> guard(mutex_odom_);
+
+    {
+      device_error_state_ = 0;
+      double latest_err_time = device_error_state_time_.toSec();
+      if (mode_ == DIFF)
+      {
+        for (int i = 0; i < 2; i++)
+        {
+          if (err->state[i] != 0)
+          {
+            device_error_state_ |= err->state[i];
+            if (latest_err_time < err->time[i])
+            {
+              latest_err_time = err->time[i];
+            }
+          }
+        }
+      }
+      for (const JointParams& j : joints_)
+      {
+        if (err->state[j.id_] != 0)
+        {
+          device_error_state_ |= err->state[j.id_];
+          if (latest_err_time < err->time[j.id_])
+          {
+            latest_err_time = err->time[j.id_];
+          }
+        }
+      }
+      device_error_state_time_ = ros::Time(latest_err_time);
+    }
 
     const ros::Time current_stamp(odom->time);
     if (current_stamp <= previous_odom_stamp_)
@@ -575,9 +594,9 @@ private:
 
       tf2Scalar yaw, pitch, roll;
       transform.getBasis().getEulerYPR(yaw, pitch, roll);
-      YP::YPSpur_adjust_pos(YP::CS_GL, transform.getOrigin().x(),
-                            transform.getOrigin().y(),
-                            yaw);
+      direct_ypspur::YPSpur_adjust_pos(YP::CS_GL, transform.getOrigin().x(),
+                                       transform.getOrigin().y(),
+                                       yaw);
     }
     catch (tf2::TransformException& ex)
     {
@@ -714,9 +733,9 @@ private:
           joints_[jid].vel_end_ = vel_end_;
           joints_[jid].vel_ = v_min;
 
-          YP::YP_set_joint_vel(joints_[jid].id_, v_min);
-          YP::YP_set_joint_accel(joints_[jid].id_, joints_[jid].accel_);
-          YP::YP_joint_ang_vel(joints_[jid].id_, cmd.positions[0], vel_end_);
+          direct_ypspur::YP_set_joint_vel(joints_[jid].id_, v_min);
+          direct_ypspur::YP_set_joint_accel(joints_[jid].id_, joints_[jid].accel_);
+          direct_ypspur::YP_joint_ang_vel(joints_[jid].id_, cmd.positions[0], vel_end_);
         }
         else
         {
@@ -737,7 +756,7 @@ private:
         {
           joints_[jid].control_ = JointParams::VELOCITY;
           joints_[jid].vel_ref_ = joints_[jid].vel_end_;
-          YP::YP_joint_vel(joints_[jid].id_, joints_[jid].vel_ref_);
+          direct_ypspur::YP_joint_vel(joints_[jid].id_, joints_[jid].vel_ref_);
         }
       }
     }
@@ -985,115 +1004,89 @@ public:
         "/diagnostics", 1);
 
     thread_coordinator_.reset();
-    for (int i = 0; i < 2; i++)
-    {
-      if (i > 0 || YP::YPSpur_initex(key_) < 0)
-      {
-        std::vector<std::string> args =
-            {
-                ypspur_bin_,
-                "-d",
-                port_,
-                "--admask",
-                ad_mask,
-                "--msq-key",
-                std::to_string(key_),
-            };
-        if (digital_input_enable_)
-          args.push_back(std::string("--enable-get-digital-io"));
-        if (simulate_)
-          args.push_back(std::string("--without-device"));
-        if (exit_on_time_jump)
-          args.push_back(std::string("--exit-on-time-jump"));
-        if (param_file_.size() > 0)
+    std::vector<std::string> args =
         {
-          args.push_back(std::string("-p"));
-          args.push_back(param_file_);
-        }
-
-        char** argv = new char*[args.size() + 1];
-        for (unsigned int i = 0; i < args.size(); i++)
-        {
-          argv[i] = new char[args[i].size() + 1];
-          memcpy(argv[i], args[i].c_str(), args[i].size());
-          argv[i][args[i].size()] = 0;
-        }
-        argv[args.size()] = nullptr;
-        int argc = static_cast<int>(args.size());
-
-        int msq = msgget(key_, 0666 | IPC_CREAT);
-        msgctl(msq, IPC_RMID, nullptr);
-
-        ROS_WARN("launching ypspur-coordinator");
-        const auto fn_coordinator = [this, argc, argv]
-        {
-          const int ret = YP::ypsc_main(argc, argv);
-          coordinator_exit_code_ = ret;
-          coordinator_exited_ = true;
-
-          for (int i = 0; i < argc; i++)
-          {
-            delete argv[i];
-          }
-          delete argv;
+            ypspur_bin_,
+            "-d",
+            port_,
+            "--admask",
+            ad_mask,
+            "--msq-key",
+            std::to_string(key_),
         };
-        coordinator_exited_ = false;
-        thread_coordinator_.reset(new std::thread(fn_coordinator));
-
-        for (int i = 4; i >= 0; i--)
-        {
-          if (coordinator_exited_.load())
-          {
-            throw(std::runtime_error(
-                "ypspur-coordinator dead immediately with exit code " +
-                std::to_string(coordinator_exit_code_.load())));
-          }
-          ros::WallDuration(1).sleep();
-          if (YP::YPSpur_initex(key_) >= 0)
-          {
-            break;
-          }
-          if (i == 0)
-          {
-            throw(std::runtime_error("failed to init libypspur"));
-          }
-        }
-      }
-      double ret;
-      boost::atomic<bool> done(false);
-      auto get_vel_thread = [&ret, &done]
-      {
-        double test_v, test_w;
-        ret = YP::YPSpur_get_vel(&test_v, &test_w);
-        done = true;
-      };
-      boost::thread spur_test = boost::thread(get_vel_thread);
-      ros::WallDuration(0.1).sleep();
-      if (!done)
-      {
-        // There is no way to kill thread safely in C++11
-        // So, just leave it detached.
-        spur_test.detach();
-        ROS_WARN("ypspur-coordinator seems to be down - launching");
-        continue;
-      }
-      spur_test.join();
-      if (ret < 0)
-      {
-        ROS_WARN("ypspur-coordinator returns error - launching");
-        continue;
-      }
-      ROS_WARN("ypspur-coordinator launched");
-      break;
+    if (digital_input_enable_)
+      args.push_back(std::string("--enable-get-digital-io"));
+    if (simulate_)
+      args.push_back(std::string("--without-device"));
+    if (exit_on_time_jump)
+      args.push_back(std::string("--exit-on-time-jump"));
+    if (param_file_.size() > 0)
+    {
+      args.push_back(std::string("-p"));
+      args.push_back(param_file_);
     }
 
-    ROS_INFO("ypspur-coordinator conneceted");
+    char** argv = new char*[args.size() + 1];
+    for (unsigned int i = 0; i < args.size(); i++)
+    {
+      argv[i] = new char[args[i].size() + 1];
+      memcpy(argv[i], args[i].c_str(), args[i].size());
+      argv[i][args[i].size()] = 0;
+    }
+    argv[args.size()] = nullptr;
+    int argc = static_cast<int>(args.size());
+
+    int msq = msgget(key_, 0666 | IPC_CREAT);
+    msgctl(msq, IPC_RMID, nullptr);
+
+    ROS_WARN("launching ypspur-coordinator");
+    const auto fn_coordinator = [this, argc, argv]
+    {
+      const int ret = YP::ypsc_main(argc, argv);
+      coordinator_exit_code_ = ret;
+      coordinator_exited_ = true;
+
+      for (int i = 0; i < argc; i++)
+      {
+        delete argv[i];
+      }
+      delete argv;
+    };
+    coordinator_exited_ = false;
+    thread_coordinator_.reset(new std::thread(fn_coordinator));
+
+    const ros::Time deadline = ros::Time::now() + ros::Duration(4);
+    while (ros::ok() && !coordinator_exited_.load() && ros::Time::now() > deadline)
+    {
+      {
+        std::lock_guard<std::mutex> guard(mutex_odom_);
+        if (previous_odom_stamp_.isValid())
+        {
+          break;
+        }
+      }
+      ros::Duration(0.1).sleep();
+    }
+    if (!previous_odom_stamp_.isValid())
+    {
+      if (coordinator_exited_.load())
+      {
+        throw(std::runtime_error(
+            "ypspur-coordinator dead immediately with exit code " +
+            std::to_string(coordinator_exit_code_.load())));
+      }
+      YP::ypsc_kill();
+      thread_coordinator_->join();
+      throw(std::runtime_error("ypspur-coordinator is not outputting data"));
+    }
+
+    ROS_WARN("ypspur-coordinator launched");
     signal(SIGINT, sigintHandler);
 
-    YP::YP_get_parameter(YP::YP_PARAM_MAX_VEL, &params_["vel"]);
-    YP::YP_get_parameter(YP::YP_PARAM_MAX_ACC_V, &params_["acc"]);
-    YP::YP_get_parameter(YP::YP_PARAM_MAX_W, &params_["angvel"]);
-    YP::YP_get_parameter(YP::YP_PARAM_MAX_ACC_W, &params_["angacc"]);
+    params_["vel"] = direct_ypspur::YP_get_parameter(YP::YP_PARAM_MAX_VEL);
+    params_["acc"] = direct_ypspur::YP_get_parameter(YP::YP_PARAM_MAX_ACC_V);
+    params_["angvel"] = direct_ypspur::YP_get_parameter(YP::YP_PARAM_MAX_W);
+    params_["angacc"] = direct_ypspur::YP_get_parameter(YP::YP_PARAM_MAX_ACC_W);
 
     if (!pnh_.hasParam("vel"))
       ROS_WARN("default \"vel\" %0.3f used", (float)params_["vel"]);
@@ -1109,13 +1102,13 @@ public:
     pnh_.param("angvel", params_["angvel"], params_["angvel"]);
     pnh_.param("angacc", params_["angacc"], params_["angacc"]);
 
-    YP::YPSpur_set_vel(params_["vel"]);
-    YP::YPSpur_set_accel(params_["acc"]);
-    YP::YPSpur_set_angvel(params_["angvel"]);
-    YP::YPSpur_set_angaccel(params_["angacc"]);
+    direct_ypspur::YPSpur_set_vel(params_["vel"]);
+    direct_ypspur::YPSpur_set_accel(params_["acc"]);
+    direct_ypspur::YPSpur_set_angvel(params_["angvel"]);
+    direct_ypspur::YPSpur_set_angaccel(params_["angacc"]);
 
-    YP::YP_set_io_data(dio_output_);
-    YP::YP_set_io_dir(dio_dir_);
+    direct_ypspur::YP_set_io_data(dio_output_);
+    direct_ypspur::YP_set_io_dir(dio_dir_);
 
     odom_trans_.header.frame_id = frames_["odom"];
     odom_trans_.child_frame_id = frames_["base_link"];
@@ -1183,7 +1176,7 @@ public:
           // cmd_vel is too old and expired
           cmd_vel_ = nullptr;
           if (control_mode_ == ypspur_ros::ControlMode::VELOCITY)
-            YP::YPSpur_vel(0.0, 0.0);
+            direct_ypspur::YPSpur_vel(0.0, 0.0);
         }
       }
 
@@ -1192,25 +1185,20 @@ public:
       updateDIO(now);
       updateDiagnostics(now);
 
-      if (YP::YP_get_error_state())
-      {
-        break;
-      }
-
       ros::spinOnce();
       loop.sleep();
 
       if (coordinator_exited_.load())
       {
         ROS_ERROR("ypspur-coordinator is stopped (exit code: %d)", coordinator_exit_code_.load());
-        updateDiagnostics(now, true);
+        updateDiagnostics(now);
         break;
       }
     }
     direct_ypspur::unregisterOdometryHook();
     ROS_INFO("ypspur_ros main loop terminated");
 
-    if (YP::YP_get_error_state())
+    if (coordinator_exited_.load())
     {
       ROS_ERROR("ypspur-coordinator is not active");
       return false;
