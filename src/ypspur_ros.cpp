@@ -1191,7 +1191,7 @@ public:
       if (coordinator_exited_.load())
       {
         ROS_ERROR("ypspur-coordinator is stopped (exit code: %d)", coordinator_exit_code_.load());
-        updateDiagnostics(now);
+        updateDiagnostics(now, true);
         break;
       }
     }
