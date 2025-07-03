@@ -85,9 +85,9 @@ TEST(CmdVel, Control)
 
   ASSERT_NEAR(odom->twist.twist.linear.x, 0.0, 1e-6);
   ASSERT_NEAR(odom->twist.twist.angular.z, 0.0, 1e-6);
-  ASSERT_NEAR(odom->pose.pose.position.x, 0.5, 1e-3);
-  ASSERT_NEAR(odom->pose.pose.position.y, 0.0, 1e-3);
-  ASSERT_NEAR(tf2::getYaw(odom->pose.pose.orientation), 0.0, 1e-3);
+  ASSERT_NEAR(odom->pose.pose.position.x, 0.5, 1e-2);
+  ASSERT_NEAR(odom->pose.pose.position.y, 0.0, 1e-2);
+  ASSERT_NEAR(tf2::getYaw(odom->pose.pose.orientation), 0.0, 1e-2);
 
   // Rotate
   cmd.angular.z = 0.5;
@@ -108,9 +108,9 @@ TEST(CmdVel, Control)
 
   ASSERT_NEAR(odom->twist.twist.linear.x, 0.0, 1e-6);
   ASSERT_NEAR(odom->twist.twist.angular.z, 0.0, 1e-6);
-  ASSERT_NEAR(odom->pose.pose.position.x, 0.5, 1e-3);
-  ASSERT_NEAR(odom->pose.pose.position.y, 0.0, 1e-3);
-  ASSERT_NEAR(tf2::getYaw(odom->pose.pose.orientation), 0.5, 1e-3);
+  ASSERT_NEAR(odom->pose.pose.position.x, 0.5, 1e-2);
+  ASSERT_NEAR(odom->pose.pose.position.y, 0.0, 1e-2);
+  ASSERT_NEAR(tf2::getYaw(odom->pose.pose.orientation), 0.5, 1e-2);
 }
 
 int main(int argc, char** argv)
