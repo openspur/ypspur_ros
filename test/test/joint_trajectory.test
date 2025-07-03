@@ -1,11 +1,14 @@
 <?xml version="1.0"?>
 <launch>
+  <env name="GCOV_PREFIX" value="/tmp/gcov/ypspur_ros_joint_trajectory" />
+
   <test test-name="test_joint_trajectory" pkg="ypspur_ros" type="test_joint_trajectory" />
-  
+
   <node pkg="ypspur_ros" type="ypspur_ros" name="ypspur_ros">
     <param name="compatible" value="1" />
+    <param name="ipc_key" value="28743" />
     <param name="simulate" value="true" />
-    <param name="param_file" value="$(find ypspur_ros)/test/config/test.param" />
+    <param name="param_file" value="$(find ypspur_ros)/test/config/joint.param" />
     <param name="joint0_enable" value="true" />
     <param name="hz" value="20.0" />
     <param name="wait_convergence_of_joint_trajectory_angle_vel" value="false" />
