@@ -178,12 +178,10 @@ private:
 
   int control_mode_;
 
-  bool avoid_publishing_duplicated_joints_;
-  bool avoid_publishing_duplicated_odom_;
   bool publish_odom_tf_;
-  ros::Time previous_joints_stamp_;
   ros::Time previous_odom_stamp_;
 
+  std::mutex mutex_odom_;
   geometry_msgs::TransformStamped odom_trans_;
   nav_msgs::Odometry odom_;
   geometry_msgs::WrenchStamped wrench_;
@@ -453,108 +451,62 @@ private:
 
   void cbOdometryUpdate(const YP::OdometryPtr odom, const YP::ErrorStatePtr err)
   {
-  }
+    std::lock_guard<std::mutex> guard(mutex_odom_);
 
-  bool receiveOdometry()
-  {
+    const ros::Time current_stamp(odom->time);
+    if (current_stamp <= previous_odom_stamp_)
+    {
+      return;
+    }
+    previous_odom_stamp_ = current_stamp;
+
     if (mode_ == DIFF)
     {
-      double x, y, yaw, v(0), w(0);
-      double t;
+      odom_.header.stamp = current_stamp;
+      odom_.pose.pose.position.x = odom->x;
+      odom_.pose.pose.position.y = odom->y;
+      odom_.pose.pose.position.z = 0;
+      odom_.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, odom->theta));
+      odom_.twist.twist.linear.x = odom->v;
+      odom_.twist.twist.linear.y = 0;
+      odom_.twist.twist.angular.z = odom->w;
+      pubs_["odom"].publish(odom_);
 
-      t = YP::YPSpur_get_pos(YP::CS_BS, &x, &y, &yaw);
-      if (t <= 0.0)
+      if (publish_odom_tf_)
       {
-        return false;
-      }
-      YP::YPSpur_get_vel(&v, &w);
-
-      const ros::Time current_stamp(t);
-      if (!avoid_publishing_duplicated_odom_ || (current_stamp > previous_odom_stamp_))
-      {
-        odom_.header.stamp = current_stamp;
-        odom_.pose.pose.position.x = x;
-        odom_.pose.pose.position.y = y;
-        odom_.pose.pose.position.z = 0;
-        odom_.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, yaw));
-        odom_.twist.twist.linear.x = v;
-        odom_.twist.twist.linear.y = 0;
-        odom_.twist.twist.angular.z = w;
-        pubs_["odom"].publish(odom_);
-
-        if (publish_odom_tf_)
-        {
-          odom_trans_.header.stamp = current_stamp + ros::Duration(tf_time_offset_);
-          odom_trans_.transform.translation.x = x;
-          odom_trans_.transform.translation.y = y;
-          odom_trans_.transform.translation.z = 0;
-          odom_trans_.transform.rotation = odom_.pose.pose.orientation;
-          tf_broadcaster_.sendTransform(odom_trans_);
-        }
-      }
-      previous_odom_stamp_ = current_stamp;
-
-      t = YP::YPSpur_get_force(&wrench_.wrench.force.x, &wrench_.wrench.torque.z);
-      if (t <= 0.0)
-      {
-        return false;
+        odom_trans_.header.stamp = current_stamp + ros::Duration(tf_time_offset_);
+        odom_trans_.transform.translation.x = odom_.pose.pose.position.x;
+        odom_trans_.transform.translation.y = odom_.pose.pose.position.y;
+        odom_trans_.transform.translation.z = 0;
+        odom_trans_.transform.rotation = odom_.pose.pose.orientation;
+        tf_broadcaster_.sendTransform(odom_trans_);
       }
 
-      wrench_.header.stamp = ros::Time(t);
+      wrench_.header.stamp = current_stamp;
+      wrench_.wrench.force.x = odom->torque_trans;
       wrench_.wrench.force.y = 0;
       wrench_.wrench.force.z = 0;
       wrench_.wrench.torque.x = 0;
       wrench_.wrench.torque.y = 0;
+      wrench_.wrench.torque.z = odom->torque_angular;
       pubs_["wrench"].publish(wrench_);
     }
     if (joints_.size() > 0)
     {
-      double t;
-      t = -1.0;
-      while (t < 0.0)
+      for (size_t i = 0; i < joints_.size(); i++)
       {
-        int i = 0;
-        for (auto& j : joints_)
-        {
-          const double t0 = YP::YP_get_joint_ang(j.id_, &joint_.position[i]);
-          const double t1 = YP::YP_get_joint_vel(j.id_, &joint_.velocity[i]);
-          const double t2 = YP::YP_get_joint_torque(j.id_, &joint_.effort[i]);
-
-          if (t0 != t1 || t1 != t2)
-          {
-            // Retry if updated during this joint
-            t = -1.0;
-            break;
-          }
-          if (t < 0.0)
-          {
-            t = t0;
-          }
-          else if (t != t0)
-          {
-            // Retry if updated during loops
-            t = -1.0;
-            break;
-          }
-          i++;
-        }
+        const int jid = joints_[i].id_;
+        joint_.header.stamp = current_stamp;
+        joint_.position[i] = odom->wang[jid];
+        joint_.velocity[i] = odom->wvel[jid];
+        joint_.effort[i] = odom->wtorque[jid];
       }
-      if (t <= 0.0)
-      {
-        return false;
-      }
-      joint_.header.stamp = ros::Time(t);
+      pubs_["joint"].publish(joint_);
 
-      if (!avoid_publishing_duplicated_joints_ || (joint_.header.stamp > previous_joints_stamp_))
-      {
-        pubs_["joint"].publish(joint_);
-        previous_joints_stamp_ = joint_.header.stamp;
-      }
-
-      for (unsigned int i = 0; i < joints_.size(); i++)
+      for (size_t i = 0; i < joints_.size(); i++)
       {
         joint_trans_[i].transform.rotation = tf2::toMsg(tf2::Quaternion(z_axis_, joint_.position[i]));
-        joint_trans_[i].header.stamp = ros::Time(t) + ros::Duration(tf_time_offset_);
+        joint_trans_[i].header.stamp = current_stamp + ros::Duration(tf_time_offset_);
         tf_broadcaster_.sendTransform(joint_trans_[i]);
       }
     }
@@ -563,28 +515,33 @@ private:
       if (ads_[i].enable_)
       {
         std_msgs::Float32 ad;
-        ad.data = YP::YP_get_ad_value(i) * ads_[i].gain_ + ads_[i].offset_;
+        ad.data = odom->ad[i] * ads_[i].gain_ + ads_[i].offset_;
         pubs_["ad/" + ads_[i].name_].publish(ad);
       }
     }
-
     if (digital_input_enable_)
     {
       ypspur_ros::DigitalInput din;
 
       din.header.stamp = ros::Time::now();
-      int in = YP::YP_get_ad_value(15);
+      const int in = odom->ad[15];
       for (int i = 0; i < dio_num_; i++)
       {
         if (!dios_[i].enable_)
+        {
           continue;
+        }
         if (!digital_input_discrete_)
         {
           din.name.push_back(dios_[i].name_);
           if (in & (1 << i))
+          {
             din.state.push_back(true);
+          }
           else
+          {
             din.state.push_back(false);
+          }
         }
         else if (dios_[i].input_)
         {
@@ -596,8 +553,6 @@ private:
       if (!digital_input_discrete_)
         pubs_["din"].publish(din);
     }
-
-    return true;
   }
 
   void feedbackLocalization()
@@ -632,6 +587,8 @@ private:
 
   void controlJoints(const ros::Time& now)
   {
+    std::lock_guard<std::mutex> guard(mutex_odom_);
+
     const float dt = 1.0 / params_["hz"];
 
     for (unsigned int jid = 0; jid < joints_.size(); jid++)
@@ -809,11 +766,18 @@ public:
     , device_error_state_(0)
     , device_error_state_prev_(0)
     , device_error_state_time_(0)
-    , avoid_publishing_duplicated_joints_(true)
-    , avoid_publishing_duplicated_odom_(true)
     , publish_odom_tf_(true)
   {
     compat::checkCompatMode();
+
+    if (pnh_.hasParam("avoid_publishing_duplicated_odom"))
+    {
+      ROS_ERROR("avoid_publishing_duplicated_odom parameter is removed");
+    }
+    if (pnh_.hasParam("avoid_publishing_duplicated_joints"))
+    {
+      ROS_ERROR("avoid_publishing_duplicated_joints parameter is removed");
+    }
 
     pnh_.param("port", port_, std::string("/dev/ttyACM0"));
     pnh_.param("ipc_key", key_, 28741);
@@ -945,8 +909,6 @@ public:
           nh_, "cmd_vel",
           pnh_, "cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
 
-      pnh_.param("avoid_publishing_duplicated_joints", avoid_publishing_duplicated_joints_, true);
-      pnh_.param("avoid_publishing_duplicated_odom", avoid_publishing_duplicated_odom_, true);
       pnh_.param("publish_odom_tf", publish_odom_tf_, true);
     }
     else if (mode_name.compare("none") == 0)
@@ -1225,10 +1187,6 @@ public:
         }
       }
 
-      if (!receiveOdometry())
-      {
-        break;
-      }
       feedbackLocalization();
       controlJoints(now);
       updateDIO(now);
