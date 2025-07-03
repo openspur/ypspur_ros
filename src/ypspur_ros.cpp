@@ -176,6 +176,12 @@ private:
   ros::Time previous_joints_stamp_;
   ros::Time previous_odom_stamp_;
 
+  geometry_msgs::TransformStamped odom_trans_;
+  nav_msgs::Odometry odom_;
+  geometry_msgs::WrenchStamped wrench_;
+  std::map<int, geometry_msgs::TransformStamped> joint_trans_;
+  sensor_msgs::JointState joint_;
+
   void cbControlMode(const ypspur_ros::ControlMode::ConstPtr& msg)
   {
     control_mode_ = msg->vehicle_control_mode;
@@ -191,6 +197,7 @@ private:
         break;
     }
   }
+
   void cbCmdVel(const geometry_msgs::Twist::ConstPtr& msg)
   {
     cmd_vel_ = msg;
@@ -200,6 +207,7 @@ private:
       YP::YPSpur_vel(msg->linear.x, msg->angular.z);
     }
   }
+
   void cbJoint(const trajectory_msgs::JointTrajectory::ConstPtr& msg)
   {
     const ros::Time now = ros::Time::now();
@@ -256,18 +264,21 @@ private:
       joints_[joint_num].cmd_joint_ = new_cmd_joint.second;
     }
   }
+
   void cbSetVel(const std_msgs::Float32::ConstPtr& msg, int num)
   {
     // printf("set_vel %d %d %f\n", num, joints_[num].id_, msg->data);
     joints_[num].vel_ = msg->data;
     YP::YP_set_joint_vel(joints_[num].id_, joints_[num].vel_);
   }
+
   void cbSetAccel(const std_msgs::Float32::ConstPtr& msg, int num)
   {
     // printf("set_accel %d %d %f\n", num, joints_[num].id_, msg->data);
     joints_[num].accel_ = msg->data;
     YP::YP_set_joint_accel(joints_[num].id_, joints_[num].accel_);
   }
+
   void cbVel(const std_msgs::Float32::ConstPtr& msg, int num)
   {
     // printf("vel_ %d %d %f\n", num, joints_[num].id_, msg->data);
@@ -275,12 +286,14 @@ private:
     joints_[num].control_ = JointParams::VELOCITY;
     YP::YP_joint_vel(joints_[num].id_, joints_[num].vel_ref_);
   }
+
   void cbAngle(const std_msgs::Float32::ConstPtr& msg, int num)
   {
     joints_[num].angle_ref_ = msg->data;
     joints_[num].control_ = JointParams::POSITION;
     YP::YP_joint_ang(joints_[num].id_, joints_[num].angle_ref_);
   }
+
   void cbJointPosition(const ypspur_ros::JointPositionControl::ConstPtr& msg)
   {
     int i = 0;
@@ -343,6 +356,7 @@ private:
       dio_revert_[id_] = ros::Time::now() + msg->toggle_time;
     }
   }
+
   void revertDigitalOutput(int id_)
   {
     const auto dio_output_prev = dio_output_;
@@ -361,6 +375,7 @@ private:
 
     dio_revert_[id_] = ros::Time(0);
   }
+
   void updateDiagnostics(const ros::Time& now, const bool connection_down = false)
   {
     const int connection_error = connection_down ? 1 : YP::YP_get_error_state();
@@ -425,6 +440,351 @@ private:
 
       pubs_["diag"].publish(msg);
       device_error_state_ = 0;
+    }
+  }
+
+  bool receiveOdometry()
+  {
+    if (mode_ == DIFF)
+    {
+      double x, y, yaw, v(0), w(0);
+      double t;
+
+      t = YP::YPSpur_get_pos(YP::CS_BS, &x, &y, &yaw);
+      if (t <= 0.0)
+      {
+        return false;
+      }
+      YP::YPSpur_get_vel(&v, &w);
+
+      const ros::Time current_stamp(t);
+      if (!avoid_publishing_duplicated_odom_ || (current_stamp > previous_odom_stamp_))
+      {
+        odom_.header.stamp = current_stamp;
+        odom_.pose.pose.position.x = x;
+        odom_.pose.pose.position.y = y;
+        odom_.pose.pose.position.z = 0;
+        odom_.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, yaw));
+        odom_.twist.twist.linear.x = v;
+        odom_.twist.twist.linear.y = 0;
+        odom_.twist.twist.angular.z = w;
+        pubs_["odom"].publish(odom_);
+
+        if (publish_odom_tf_)
+        {
+          odom_trans_.header.stamp = current_stamp + ros::Duration(tf_time_offset_);
+          odom_trans_.transform.translation.x = x;
+          odom_trans_.transform.translation.y = y;
+          odom_trans_.transform.translation.z = 0;
+          odom_trans_.transform.rotation = odom_.pose.pose.orientation;
+          tf_broadcaster_.sendTransform(odom_trans_);
+        }
+      }
+      previous_odom_stamp_ = current_stamp;
+
+      t = YP::YPSpur_get_force(&wrench_.wrench.force.x, &wrench_.wrench.torque.z);
+      if (t <= 0.0)
+      {
+        return false;
+      }
+
+      wrench_.header.stamp = ros::Time(t);
+      wrench_.wrench.force.y = 0;
+      wrench_.wrench.force.z = 0;
+      wrench_.wrench.torque.x = 0;
+      wrench_.wrench.torque.y = 0;
+      pubs_["wrench"].publish(wrench_);
+    }
+    if (joints_.size() > 0)
+    {
+      double t;
+      t = -1.0;
+      while (t < 0.0)
+      {
+        int i = 0;
+        for (auto& j : joints_)
+        {
+          const double t0 = YP::YP_get_joint_ang(j.id_, &joint_.position[i]);
+          const double t1 = YP::YP_get_joint_vel(j.id_, &joint_.velocity[i]);
+          const double t2 = YP::YP_get_joint_torque(j.id_, &joint_.effort[i]);
+
+          if (t0 != t1 || t1 != t2)
+          {
+            // Retry if updated during this joint
+            t = -1.0;
+            break;
+          }
+          if (t < 0.0)
+          {
+            t = t0;
+          }
+          else if (t != t0)
+          {
+            // Retry if updated during loops
+            t = -1.0;
+            break;
+          }
+          i++;
+        }
+      }
+      if (t <= 0.0)
+      {
+        return false;
+      }
+      joint_.header.stamp = ros::Time(t);
+
+      if (!avoid_publishing_duplicated_joints_ || (joint_.header.stamp > previous_joints_stamp_))
+      {
+        pubs_["joint"].publish(joint_);
+        previous_joints_stamp_ = joint_.header.stamp;
+      }
+
+      for (unsigned int i = 0; i < joints_.size(); i++)
+      {
+        joint_trans_[i].transform.rotation = tf2::toMsg(tf2::Quaternion(z_axis_, joint_.position[i]));
+        joint_trans_[i].header.stamp = ros::Time(t) + ros::Duration(tf_time_offset_);
+        tf_broadcaster_.sendTransform(joint_trans_[i]);
+      }
+    }
+    for (int i = 0; i < ad_num_; i++)
+    {
+      if (ads_[i].enable_)
+      {
+        std_msgs::Float32 ad;
+        ad.data = YP::YP_get_ad_value(i) * ads_[i].gain_ + ads_[i].offset_;
+        pubs_["ad/" + ads_[i].name_].publish(ad);
+      }
+    }
+
+    if (digital_input_enable_)
+    {
+      ypspur_ros::DigitalInput din;
+
+      din.header.stamp = ros::Time::now();
+      int in = YP::YP_get_ad_value(15);
+      for (int i = 0; i < dio_num_; i++)
+      {
+        if (!dios_[i].enable_)
+          continue;
+        if (!digital_input_discrete_)
+        {
+          din.name.push_back(dios_[i].name_);
+          if (in & (1 << i))
+            din.state.push_back(true);
+          else
+            din.state.push_back(false);
+        }
+        else if (dios_[i].input_)
+        {
+          std_msgs::Bool di;
+          di.data = in & (1 << i);
+          pubs_["di/" + dios_[i].name_].publish(di);
+        }
+      }
+      if (!digital_input_discrete_)
+        pubs_["din"].publish(din);
+    }
+
+    return true;
+  }
+
+  void feedbackLocalization()
+  {
+    if (mode_ != DIFF)
+    {
+      return;
+    }
+    if (frames_["origin"].length() == 0)
+    {
+      return;
+    }
+    try
+    {
+      tf2::Stamped<tf2::Transform> transform;
+      geometry_msgs::TransformStamped transform_msg = tf_buffer_.lookupTransform(
+          frames_["origin"], frames_["base_link"],
+          ros::Time(0));
+      tf2::fromMsg(transform_msg, transform);
+
+      tf2Scalar yaw, pitch, roll;
+      transform.getBasis().getEulerYPR(yaw, pitch, roll);
+      YP::YPSpur_adjust_pos(YP::CS_GL, transform.getOrigin().x(),
+                            transform.getOrigin().y(),
+                            yaw);
+    }
+    catch (tf2::TransformException& ex)
+    {
+      ROS_ERROR("Failed to feedback localization result to YP-Spur (%s)", ex.what());
+    }
+  }
+
+  void controlJoints(const ros::Time& now)
+  {
+    const float dt = 1.0 / params_["hz"];
+
+    for (unsigned int jid = 0; jid < joints_.size(); jid++)
+    {
+      if (joints_[jid].control_ != JointParams::TRAJECTORY)
+        continue;
+
+      auto& cmd_joint_ = joints_[jid].cmd_joint_;
+      auto t = now - cmd_joint_.header.stamp;
+      if (t < ros::Duration(0))
+        continue;
+
+      bool done = true;
+      for (auto& cmd : cmd_joint_.points)
+      {
+        if (cmd.time_from_start < ros::Duration(0))
+          continue;
+        if (now > cmd_joint_.header.stamp + cmd.time_from_start)
+          continue;
+        done = false;
+
+        double ang_err = cmd.positions[0] - joint_.position[jid];
+        double& vel_end_ = cmd.velocities[0];
+        double& vel_start = joint_.velocity[jid];
+        auto t_left = cmd.time_from_start - t;
+
+        double v;
+        double v_min;
+        bool v_found = true;
+        while (true)
+        {
+          // ROS_INFO("st: %0.3f, en: %0.3f, err: %0.3f, t: %0.3f",
+          //          vel_start, vel_end_, ang_err, t_left.toSec());
+          int s;
+          if (vel_end_ > vel_start)
+            s = 1;
+          else
+            s = -1;
+          v = (s * (vel_start + vel_end_) * (vel_start - vel_end_) +
+               ang_err * joints_[jid].accel_ * 2.0) /
+              (2.0 * s * (vel_start - vel_end_) + joints_[jid].accel_ * 2.0 * (t_left.toSec()));
+
+          double err_deacc;
+          err_deacc = fabs(vel_end_ * vel_end_ - v * v) / (joints_[jid].accel_ * 2.0);
+          // ROS_INFO("v+-: %0.3f", v);
+          v_min = fabs(v);
+          if ((vel_start * s <= v * s || err_deacc >= fabs(ang_err)) &&
+              v * s <= vel_end_ * s)
+            break;
+
+          v_min = DBL_MAX;
+
+          auto vf = [](const double& st, const double& en,
+                       const double& acc, const double& err, const double& t,
+                       const int& sig, const int& sol, double& ret)
+          {
+            double sq;
+            sq = -4.0 * st * st +
+                 8.0 * st * en -
+                 4.0 * en * en +
+                 4.0 * sig * acc * 2 * (t * (st + en) - 2.0 * err) +
+                 4.0 * acc * acc * t * t;
+            if (sq < 0)
+              return false;
+
+            ret = (2.0 * sig * (st + en) + 2.0 * acc * t + sol * sqrt(sq)) / (4.0 * sig);
+
+            return true;
+          };
+
+          v_found = false;
+
+          if (vf(vel_start, vel_end_, joints_[jid].accel_, ang_err, t_left.toSec(),
+                 1, 1, v))
+          {
+            // ROS_INFO("v++: sol+ %0.3f", v);
+            if (v >= vel_start && v >= vel_end_)
+            {
+              if (v_min > fabs(v))
+                v_min = fabs(v);
+              v_found = true;
+            }
+          }
+          if (vf(vel_start, vel_end_, joints_[jid].accel_, ang_err, t_left.toSec(),
+                 -1, 1, v))
+          {
+            // ROS_INFO("v--: sol+ %0.3f", v);
+            if (v <= vel_start && v <= vel_end_)
+            {
+              if (v_min > fabs(v))
+                v_min = fabs(v);
+              v_found = true;
+            }
+          }
+          if (vf(vel_start, vel_end_, joints_[jid].accel_, ang_err, t_left.toSec(),
+                 1, -1, v))
+          {
+            // ROS_INFO("v++: sol- %0.3f", v);
+            if (v >= vel_start && v >= vel_end_)
+            {
+              if (v_min > fabs(v))
+                v_min = fabs(v);
+              v_found = true;
+            }
+          }
+          if (vf(vel_start, vel_end_, joints_[jid].accel_, ang_err, t_left.toSec(),
+                 -1, -1, v))
+          {
+            // ROS_INFO("v--: sol- %0.3f", v);
+            if (v <= vel_start && v <= vel_end_)
+            {
+              if (v_min > fabs(v))
+                v_min = fabs(v);
+              v_found = true;
+            }
+          }
+          break;
+        }
+        if (v_found)
+        {
+          // ROS_INFO("v: %0.3f", v_min);
+          joints_[jid].angle_ref_ = cmd.positions[0];
+          joints_[jid].vel_end_ = vel_end_;
+          joints_[jid].vel_ = v_min;
+
+          YP::YP_set_joint_vel(joints_[jid].id_, v_min);
+          YP::YP_set_joint_accel(joints_[jid].id_, joints_[jid].accel_);
+          YP::YP_joint_ang_vel(joints_[jid].id_, cmd.positions[0], vel_end_);
+        }
+        else
+        {
+          ROS_ERROR("Impossible trajectory given");
+        }
+        break;
+      }
+
+      if (done)
+      {
+        if (!wait_convergence_of_joint_trajectory_angle_vel_ ||
+            (joints_[jid].vel_end_ > 0.0 &&
+             joints_[jid].angle_ref_ > joint_.position[jid] &&
+             joints_[jid].angle_ref_ < joint_.position[jid] + joints_[jid].vel_ref_ * dt) ||
+            (joints_[jid].vel_end_ < 0.0 &&
+             joints_[jid].angle_ref_ < joint_.position[jid] &&
+             joints_[jid].angle_ref_ > joint_.position[jid] + joints_[jid].vel_ref_ * dt))
+        {
+          joints_[jid].control_ = JointParams::VELOCITY;
+          joints_[jid].vel_ref_ = joints_[jid].vel_end_;
+          YP::YP_joint_vel(joints_[jid].id_, joints_[jid].vel_ref_);
+        }
+      }
+    }
+  }
+
+  void updateDIO(const ros::Time& now)
+  {
+    for (int i = 0; i < dio_num_; i++)
+    {
+      if (dio_revert_[i] != ros::Time(0))
+      {
+        if (dio_revert_[i] < now)
+        {
+          revertDigitalOutput(i);
+        }
+      }
     }
   }
 
@@ -789,7 +1149,42 @@ public:
 
     YP::YP_set_io_data(dio_output_);
     YP::YP_set_io_dir(dio_dir_);
+
+    odom_trans_.header.frame_id = frames_["odom"];
+    odom_trans_.child_frame_id = frames_["base_link"];
+
+    odom_.header.frame_id = frames_["odom"];
+    odom_.child_frame_id = frames_["base_link"];
+    wrench_.header.frame_id = frames_["base_link"];
+
+    odom_.pose.pose.position.x = 0;
+    odom_.pose.pose.position.y = 0;
+    odom_.pose.pose.position.z = 0;
+    odom_.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, 0));
+    odom_.twist.twist.linear.x = 0;
+    odom_.twist.twist.linear.y = 0;
+    odom_.twist.twist.angular.z = 0;
+
+    if (joints_.size() > 0)
+    {
+      joint_.header.frame_id = std::string("");
+      joint_.velocity.resize(joints_.size());
+      joint_.position.resize(joints_.size());
+      joint_.effort.resize(joints_.size());
+      for (auto& j : joints_)
+        joint_.name.push_back(j.name_);
+
+      for (unsigned int i = 0; i < joints_.size(); i++)
+      {
+        joint_trans_[i].header.frame_id = joints_[i].name_ + std::string("_in");
+        joint_trans_[i].child_frame_id = joints_[i].name_ + std::string("_out");
+        joint_.velocity[i] = 0;
+        joint_.position[i] = 0;
+        joint_.effort[i] = 0;
+      }
+    }
   }
+
   ~YpspurRosNode()
   {
     // Kill ypspur-coordinator if the communication is still active.
@@ -802,53 +1197,14 @@ public:
       ROS_INFO("ypspur-coordinator is killed (status: %d)", status);
     }
   }
+
   bool spin()
   {
-    geometry_msgs::TransformStamped odom_trans;
-    odom_trans.header.frame_id = frames_["odom"];
-    odom_trans.child_frame_id = frames_["base_link"];
-
-    nav_msgs::Odometry odom;
-    geometry_msgs::WrenchStamped wrench;
-    odom.header.frame_id = frames_["odom"];
-    odom.child_frame_id = frames_["base_link"];
-    wrench.header.frame_id = frames_["base_link"];
-
-    odom.pose.pose.position.x = 0;
-    odom.pose.pose.position.y = 0;
-    odom.pose.pose.position.z = 0;
-    odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, 0));
-    odom.twist.twist.linear.x = 0;
-    odom.twist.twist.linear.y = 0;
-    odom.twist.twist.angular.z = 0;
-
-    std::map<int, geometry_msgs::TransformStamped> joint_trans;
-    sensor_msgs::JointState joint;
-    if (joints_.size() > 0)
-    {
-      joint.header.frame_id = std::string("");
-      joint.velocity.resize(joints_.size());
-      joint.position.resize(joints_.size());
-      joint.effort.resize(joints_.size());
-      for (auto& j : joints_)
-        joint.name.push_back(j.name_);
-
-      for (unsigned int i = 0; i < joints_.size(); i++)
-      {
-        joint_trans[i].header.frame_id = joints_[i].name_ + std::string("_in");
-        joint_trans[i].child_frame_id = joints_[i].name_ + std::string("_out");
-        joint.velocity[i] = 0;
-        joint.position[i] = 0;
-        joint.effort[i] = 0;
-      }
-    }
-
     ROS_INFO("ypspur_ros main loop started");
     ros::Rate loop(params_["hz"]);
     while (!g_shutdown)
     {
       const auto now = ros::Time::now();
-      const float dt = 1.0 / params_["hz"];
 
       if (cmd_vel_ && cmd_vel_expire_ > ros::Duration(0))
       {
@@ -861,328 +1217,19 @@ public:
         }
       }
 
-      if (mode_ == DIFF)
+      if (!receiveOdometry())
       {
-        double x, y, yaw, v(0), w(0);
-        double t;
-
-        t = YP::YPSpur_get_pos(YP::CS_BS, &x, &y, &yaw);
-        if (t <= 0.0)
-          break;
-        YP::YPSpur_get_vel(&v, &w);
-
-        const ros::Time current_stamp(t);
-        if (!avoid_publishing_duplicated_odom_ || (current_stamp > previous_odom_stamp_))
-        {
-          odom.header.stamp = current_stamp;
-          odom.pose.pose.position.x = x;
-          odom.pose.pose.position.y = y;
-          odom.pose.pose.position.z = 0;
-          odom.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, yaw));
-          odom.twist.twist.linear.x = v;
-          odom.twist.twist.linear.y = 0;
-          odom.twist.twist.angular.z = w;
-          pubs_["odom"].publish(odom);
-
-          if (publish_odom_tf_)
-          {
-            odom_trans.header.stamp = current_stamp + ros::Duration(tf_time_offset_);
-            odom_trans.transform.translation.x = x;
-            odom_trans.transform.translation.y = y;
-            odom_trans.transform.translation.z = 0;
-            odom_trans.transform.rotation = odom.pose.pose.orientation;
-            tf_broadcaster_.sendTransform(odom_trans);
-          }
-        }
-        previous_odom_stamp_ = current_stamp;
-
-        t = YP::YPSpur_get_force(&wrench.wrench.force.x, &wrench.wrench.torque.z);
-        if (t <= 0.0)
-          break;
-
-        wrench.header.stamp = ros::Time(t);
-        wrench.wrench.force.y = 0;
-        wrench.wrench.force.z = 0;
-        wrench.wrench.torque.x = 0;
-        wrench.wrench.torque.y = 0;
-        pubs_["wrench"].publish(wrench);
-
-        if (frames_["origin"].length() > 0)
-        {
-          try
-          {
-            tf2::Stamped<tf2::Transform> transform;
-            geometry_msgs::TransformStamped transform_msg = tf_buffer_.lookupTransform(
-                frames_["origin"], frames_["base_link"],
-                ros::Time(0));
-            tf2::fromMsg(transform_msg, transform);
-
-            tf2Scalar yaw, pitch, roll;
-            transform.getBasis().getEulerYPR(yaw, pitch, roll);
-            YP::YPSpur_adjust_pos(YP::CS_GL, transform.getOrigin().x(),
-                                  transform.getOrigin().y(),
-                                  yaw);
-          }
-          catch (tf2::TransformException& ex)
-          {
-            ROS_ERROR("Failed to feedback localization result to YP-Spur (%s)", ex.what());
-          }
-        }
+        break;
       }
-      if (joints_.size() > 0)
-      {
-        double t;
-        t = -1.0;
-        while (t < 0.0)
-        {
-          int i = 0;
-          for (auto& j : joints_)
-          {
-            const double t0 = YP::YP_get_joint_ang(j.id_, &joint.position[i]);
-            const double t1 = YP::YP_get_joint_vel(j.id_, &joint.velocity[i]);
-            const double t2 = YP::YP_get_joint_torque(j.id_, &joint.effort[i]);
-
-            if (t0 != t1 || t1 != t2)
-            {
-              // Retry if updated during this joint
-              t = -1.0;
-              break;
-            }
-            if (t < 0.0)
-            {
-              t = t0;
-            }
-            else if (t != t0)
-            {
-              // Retry if updated during loops
-              t = -1.0;
-              break;
-            }
-            i++;
-          }
-        }
-        if (t <= 0.0)
-          break;
-        joint.header.stamp = ros::Time(t);
-
-        if (!avoid_publishing_duplicated_joints_ || (joint.header.stamp > previous_joints_stamp_))
-        {
-          pubs_["joint"].publish(joint);
-          previous_joints_stamp_ = joint.header.stamp;
-        }
-
-        for (unsigned int i = 0; i < joints_.size(); i++)
-        {
-          joint_trans[i].transform.rotation = tf2::toMsg(tf2::Quaternion(z_axis_, joint.position[i]));
-          joint_trans[i].header.stamp = ros::Time(t) + ros::Duration(tf_time_offset_);
-          tf_broadcaster_.sendTransform(joint_trans[i]);
-        }
-
-        for (unsigned int jid = 0; jid < joints_.size(); jid++)
-        {
-          if (joints_[jid].control_ != JointParams::TRAJECTORY)
-            continue;
-
-          auto& cmd_joint_ = joints_[jid].cmd_joint_;
-          auto t = now - cmd_joint_.header.stamp;
-          if (t < ros::Duration(0))
-            continue;
-
-          bool done = true;
-          for (auto& cmd : cmd_joint_.points)
-          {
-            if (cmd.time_from_start < ros::Duration(0))
-              continue;
-            if (now > cmd_joint_.header.stamp + cmd.time_from_start)
-              continue;
-            done = false;
-
-            double ang_err = cmd.positions[0] - joint.position[jid];
-            double& vel_end_ = cmd.velocities[0];
-            double& vel_start = joint.velocity[jid];
-            auto t_left = cmd.time_from_start - t;
-
-            double v;
-            double v_min;
-            bool v_found = true;
-            while (true)
-            {
-              // ROS_INFO("st: %0.3f, en: %0.3f, err: %0.3f, t: %0.3f",
-              //          vel_start, vel_end_, ang_err, t_left.toSec());
-              int s;
-              if (vel_end_ > vel_start)
-                s = 1;
-              else
-                s = -1;
-              v = (s * (vel_start + vel_end_) * (vel_start - vel_end_) +
-                   ang_err * joints_[jid].accel_ * 2.0) /
-                  (2.0 * s * (vel_start - vel_end_) + joints_[jid].accel_ * 2.0 * (t_left.toSec()));
-
-              double err_deacc;
-              err_deacc = fabs(vel_end_ * vel_end_ - v * v) / (joints_[jid].accel_ * 2.0);
-              // ROS_INFO("v+-: %0.3f", v);
-              v_min = fabs(v);
-              if ((vel_start * s <= v * s || err_deacc >= fabs(ang_err)) &&
-                  v * s <= vel_end_ * s)
-                break;
-
-              v_min = DBL_MAX;
-
-              auto vf = [](const double& st, const double& en,
-                           const double& acc, const double& err, const double& t,
-                           const int& sig, const int& sol, double& ret)
-              {
-                double sq;
-                sq = -4.0 * st * st +
-                     8.0 * st * en -
-                     4.0 * en * en +
-                     4.0 * sig * acc * 2 * (t * (st + en) - 2.0 * err) +
-                     4.0 * acc * acc * t * t;
-                if (sq < 0)
-                  return false;
-
-                ret = (2.0 * sig * (st + en) + 2.0 * acc * t + sol * sqrt(sq)) / (4.0 * sig);
-
-                return true;
-              };
-
-              v_found = false;
-
-              if (vf(vel_start, vel_end_, joints_[jid].accel_, ang_err, t_left.toSec(),
-                     1, 1, v))
-              {
-                // ROS_INFO("v++: sol+ %0.3f", v);
-                if (v >= vel_start && v >= vel_end_)
-                {
-                  if (v_min > fabs(v))
-                    v_min = fabs(v);
-                  v_found = true;
-                }
-              }
-              if (vf(vel_start, vel_end_, joints_[jid].accel_, ang_err, t_left.toSec(),
-                     -1, 1, v))
-              {
-                // ROS_INFO("v--: sol+ %0.3f", v);
-                if (v <= vel_start && v <= vel_end_)
-                {
-                  if (v_min > fabs(v))
-                    v_min = fabs(v);
-                  v_found = true;
-                }
-              }
-              if (vf(vel_start, vel_end_, joints_[jid].accel_, ang_err, t_left.toSec(),
-                     1, -1, v))
-              {
-                // ROS_INFO("v++: sol- %0.3f", v);
-                if (v >= vel_start && v >= vel_end_)
-                {
-                  if (v_min > fabs(v))
-                    v_min = fabs(v);
-                  v_found = true;
-                }
-              }
-              if (vf(vel_start, vel_end_, joints_[jid].accel_, ang_err, t_left.toSec(),
-                     -1, -1, v))
-              {
-                // ROS_INFO("v--: sol- %0.3f", v);
-                if (v <= vel_start && v <= vel_end_)
-                {
-                  if (v_min > fabs(v))
-                    v_min = fabs(v);
-                  v_found = true;
-                }
-              }
-              break;
-            }
-            if (v_found)
-            {
-              // ROS_INFO("v: %0.3f", v_min);
-              joints_[jid].angle_ref_ = cmd.positions[0];
-              joints_[jid].vel_end_ = vel_end_;
-              joints_[jid].vel_ = v_min;
-
-              YP::YP_set_joint_vel(joints_[jid].id_, v_min);
-              YP::YP_set_joint_accel(joints_[jid].id_, joints_[jid].accel_);
-              YP::YP_joint_ang_vel(joints_[jid].id_, cmd.positions[0], vel_end_);
-            }
-            else
-            {
-              ROS_ERROR("Impossible trajectory given");
-            }
-            break;
-          }
-
-          if (done)
-          {
-            if (!wait_convergence_of_joint_trajectory_angle_vel_ ||
-                (joints_[jid].vel_end_ > 0.0 &&
-                 joints_[jid].angle_ref_ > joint.position[jid] &&
-                 joints_[jid].angle_ref_ < joint.position[jid] + joints_[jid].vel_ref_ * dt) ||
-                (joints_[jid].vel_end_ < 0.0 &&
-                 joints_[jid].angle_ref_ < joint.position[jid] &&
-                 joints_[jid].angle_ref_ > joint.position[jid] + joints_[jid].vel_ref_ * dt))
-            {
-              joints_[jid].control_ = JointParams::VELOCITY;
-              joints_[jid].vel_ref_ = joints_[jid].vel_end_;
-              YP::YP_joint_vel(joints_[jid].id_, joints_[jid].vel_ref_);
-            }
-          }
-        }
-      }
-
-      for (int i = 0; i < ad_num_; i++)
-      {
-        if (ads_[i].enable_)
-        {
-          std_msgs::Float32 ad;
-          ad.data = YP::YP_get_ad_value(i) * ads_[i].gain_ + ads_[i].offset_;
-          pubs_["ad/" + ads_[i].name_].publish(ad);
-        }
-      }
-
-      if (digital_input_enable_)
-      {
-        ypspur_ros::DigitalInput din;
-
-        din.header.stamp = ros::Time::now();
-        int in = YP::YP_get_ad_value(15);
-        for (int i = 0; i < dio_num_; i++)
-        {
-          if (!dios_[i].enable_)
-            continue;
-          if (!digital_input_discrete_)
-          {
-            din.name.push_back(dios_[i].name_);
-            if (in & (1 << i))
-              din.state.push_back(true);
-            else
-              din.state.push_back(false);
-          }
-          else if (dios_[i].input_)
-          {
-            std_msgs::Bool di;
-            di.data = in & (1 << i);
-            pubs_["di/" + dios_[i].name_].publish(di);
-          }
-        }
-        if (!digital_input_discrete_)
-          pubs_["din"].publish(din);
-      }
-
-      for (int i = 0; i < dio_num_; i++)
-      {
-        if (dio_revert_[i] != ros::Time(0))
-        {
-          if (dio_revert_[i] < now)
-          {
-            revertDigitalOutput(i);
-          }
-        }
-      }
+      feedbackLocalization();
+      controlJoints(now);
+      updateDIO(now);
       updateDiagnostics(now);
 
       if (YP::YP_get_error_state())
+      {
         break;
+      }
 
       ros::spinOnce();
       loop.sleep();
