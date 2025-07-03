@@ -1056,7 +1056,7 @@ public:
     thread_coordinator_.reset(new std::thread(fn_coordinator));
 
     const ros::Time deadline = ros::Time::now() + ros::Duration(4);
-    while (ros::ok() && !coordinator_exited_.load() && ros::Time::now() > deadline)
+    while (ros::ok() && !coordinator_exited_.load() && ros::Time::now() < deadline)
     {
       {
         std::lock_guard<std::mutex> guard(mutex_odom_);
