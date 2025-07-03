@@ -1043,7 +1043,6 @@ public:
       }
     }
 
-    thread_coordinator_.reset();
     std::vector<std::string> args =
         {
             ypspur_bin_,
@@ -1076,9 +1075,6 @@ public:
     argv[args.size()] = nullptr;
     int argc = static_cast<int>(args.size());
 
-    int msq = msgget(key_, 0666 | IPC_CREAT);
-    msgctl(msq, IPC_RMID, nullptr);
-
     ROS_WARN("launching ypspur-coordinator");
     const auto fn_coordinator = [this, argc, argv]
     {
@@ -1092,7 +1088,10 @@ public:
       }
       delete argv;
     };
+    previous_odom_stamp_ = ros::Time();
     coordinator_exited_ = false;
+    direct_ypspur::registerOdometryHook(
+        std::bind(&YpspurRosNode::cbOdometryUpdate, this, std::placeholders::_1, std::placeholders::_2));
     thread_coordinator_.reset(new std::thread(fn_coordinator));
 
     const ros::Time deadline = ros::Time::now() + ros::Duration(4);
@@ -1100,14 +1099,14 @@ public:
     {
       {
         std::lock_guard<std::mutex> guard(mutex_odom_);
-        if (previous_odom_stamp_.isValid())
+        if (!previous_odom_stamp_.isZero())
         {
           break;
         }
       }
       ros::Duration(0.1).sleep();
     }
-    if (!previous_odom_stamp_.isValid())
+    if (previous_odom_stamp_.isZero())
     {
       if (coordinator_exited_.load())
       {
@@ -1167,9 +1166,6 @@ public:
   {
     ROS_INFO("ypspur_ros main loop started");
     ros::Rate loop(params_["hz"]);
-
-    direct_ypspur::registerOdometryHook(
-        std::bind(&YpspurRosNode::cbOdometryUpdate, this, std::placeholders::_1, std::placeholders::_2));
 
     while (!g_shutdown)
     {
