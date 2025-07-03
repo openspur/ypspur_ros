@@ -59,7 +59,10 @@ include_directories(
   ${ypspur_INCLUDE_DIRS}
 )
 
-add_executable(ypspur_ros src/ypspur_ros.cpp)
+add_executable(ypspur_ros
+  src/ypspur_ros.cpp
+  src/direct_ypspur.cpp
+)
 target_link_libraries(ypspur_ros
   ${catkin_LIBRARIES}
   ypspur

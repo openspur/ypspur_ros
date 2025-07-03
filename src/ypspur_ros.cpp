@@ -64,11 +64,13 @@
 #include <exception>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include <compatibility.h>
+#include <ypspur_ros/direct_ypspur.h>
 
 namespace YP
 {
@@ -447,6 +449,10 @@ private:
       pubs_["diag"].publish(msg);
       device_error_state_ = 0;
     }
+  }
+
+  void cbOdometryUpdate(const YP::OdometryPtr odom, const YP::ErrorStatePtr err)
+  {
   }
 
   bool receiveOdometry()
@@ -1200,6 +1206,10 @@ public:
   {
     ROS_INFO("ypspur_ros main loop started");
     ros::Rate loop(params_["hz"]);
+
+    direct_ypspur::registerOdometryHook(
+        std::bind(&YpspurRosNode::cbOdometryUpdate, this, std::placeholders::_1, std::placeholders::_2));
+
     while (!g_shutdown)
     {
       const auto now = ros::Time::now();
@@ -1239,6 +1249,7 @@ public:
         break;
       }
     }
+    direct_ypspur::unregisterOdometryHook();
     ROS_INFO("ypspur_ros main loop terminated");
 
     if (YP::YP_get_error_state())
