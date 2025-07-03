@@ -401,7 +401,13 @@ private:
       msg.status[0].hardware_id = "ipc-key" + std::to_string(key_);
       if (device_error_state_ == 0 && connection_error == 0)
       {
-        if (device_error_state_time_ + ros::Duration(1.0) < now)
+        if (device_error_state_time_.isZero())
+        {
+          msg.status[0].level = diagnostic_msgs::DiagnosticStatus::OK;
+          msg.status[0].message = "Motor controller doesn't "
+                                  "provide device error state.";
+        }
+        else if (device_error_state_time_ + ros::Duration(1.0) < now)
         {
           msg.status[0].level = diagnostic_msgs::DiagnosticStatus::ERROR;
           msg.status[0].message = "Motor controller doesn't "
