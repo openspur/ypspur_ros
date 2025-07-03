@@ -1003,6 +1003,40 @@ public:
     pubs_["diag"] = nh_.advertise<diagnostic_msgs::DiagnosticArray>(
         "/diagnostics", 1);
 
+    odom_trans_.header.frame_id = frames_["odom"];
+    odom_trans_.child_frame_id = frames_["base_link"];
+
+    odom_.header.frame_id = frames_["odom"];
+    odom_.child_frame_id = frames_["base_link"];
+    wrench_.header.frame_id = frames_["base_link"];
+
+    odom_.pose.pose.position.x = 0;
+    odom_.pose.pose.position.y = 0;
+    odom_.pose.pose.position.z = 0;
+    odom_.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, 0));
+    odom_.twist.twist.linear.x = 0;
+    odom_.twist.twist.linear.y = 0;
+    odom_.twist.twist.angular.z = 0;
+
+    if (joints_.size() > 0)
+    {
+      joint_.header.frame_id = std::string("");
+      joint_.velocity.resize(joints_.size());
+      joint_.position.resize(joints_.size());
+      joint_.effort.resize(joints_.size());
+      for (auto& j : joints_)
+        joint_.name.push_back(j.name_);
+
+      for (unsigned int i = 0; i < joints_.size(); i++)
+      {
+        joint_trans_[i].header.frame_id = joints_[i].name_ + std::string("_in");
+        joint_trans_[i].child_frame_id = joints_[i].name_ + std::string("_out");
+        joint_.velocity[i] = 0;
+        joint_.position[i] = 0;
+        joint_.effort[i] = 0;
+      }
+    }
+
     thread_coordinator_.reset();
     std::vector<std::string> args =
         {
@@ -1109,40 +1143,6 @@ public:
 
     direct_ypspur::YP_set_io_data(dio_output_);
     direct_ypspur::YP_set_io_dir(dio_dir_);
-
-    odom_trans_.header.frame_id = frames_["odom"];
-    odom_trans_.child_frame_id = frames_["base_link"];
-
-    odom_.header.frame_id = frames_["odom"];
-    odom_.child_frame_id = frames_["base_link"];
-    wrench_.header.frame_id = frames_["base_link"];
-
-    odom_.pose.pose.position.x = 0;
-    odom_.pose.pose.position.y = 0;
-    odom_.pose.pose.position.z = 0;
-    odom_.pose.pose.orientation = tf2::toMsg(tf2::Quaternion(z_axis_, 0));
-    odom_.twist.twist.linear.x = 0;
-    odom_.twist.twist.linear.y = 0;
-    odom_.twist.twist.angular.z = 0;
-
-    if (joints_.size() > 0)
-    {
-      joint_.header.frame_id = std::string("");
-      joint_.velocity.resize(joints_.size());
-      joint_.position.resize(joints_.size());
-      joint_.effort.resize(joints_.size());
-      for (auto& j : joints_)
-        joint_.name.push_back(j.name_);
-
-      for (unsigned int i = 0; i < joints_.size(); i++)
-      {
-        joint_trans_[i].header.frame_id = joints_[i].name_ + std::string("_in");
-        joint_trans_[i].child_frame_id = joints_[i].name_ + std::string("_out");
-        joint_.velocity[i] = 0;
-        joint_.position[i] = 0;
-        joint_.effort[i] = 0;
-      }
-    }
   }
 
   ~YpspurRosNode()
