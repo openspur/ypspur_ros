@@ -115,16 +115,16 @@ TEST(CmdVel, Control)
   ASSERT_NEAR(tf2::getYaw(odom->pose.pose.orientation), 0.5, 1e-2);
 }
 
-TEST(CmdVel, Delay)
+TEST(CmdVel, Latency)
 {
   std::atomic_int count(0);
   const boost::function<void(const nav_msgs::Odometry::ConstPtr&)> cb_odom =
       [&count](const nav_msgs::Odometry::ConstPtr& msg) -> void
   {
-    const ros::Duration delay = ros::Time::now() - msg->header.stamp;
+    const ros::Duration latency = ros::Time::now() - msg->header.stamp;
     if (++count > 5)
     {
-      EXPECT_NEAR(delay.toSec(), 0, 1e-3);
+      EXPECT_NEAR(latency.toSec(), 0, 1e-3);
     }
   };
   ros::NodeHandle nh;
@@ -149,7 +149,7 @@ TEST(CmdVel, Delay)
 int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
-  ros::init(argc, argv, "test_joint_trajectory");
+  ros::init(argc, argv, "test_cmd_vel");
 
   return RUN_ALL_TESTS();
 }
