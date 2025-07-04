@@ -803,6 +803,10 @@ public:
     {
       ROS_ERROR("avoid_publishing_duplicated_joints parameter is removed");
     }
+    if (pnh_.hasParam("ypspur_bin"))
+    {
+      ROS_ERROR("ypspur_bin parameter is removed");
+    }
 
     pnh_.param("port", port_, std::string("/dev/ttyACM0"));
     pnh_.param("ipc_key", key_, 28741);
@@ -818,9 +822,10 @@ public:
         "wait_convergence_of_joint_trajectory_angle_vel", wait_convergence_of_joint_trajectory_angle_vel_, true);
     bool exit_on_time_jump;
     pnh_.param("exit_on_time_jump", exit_on_time_jump, false);
-    pnh_.param("ypspur_bin", ypspur_bin_, std::string("ypspur-coordinator"));
     pnh_.param("param_file", param_file_, std::string(""));
     pnh_.param("tf_time_offset", tf_time_offset_, 0.0);
+    bool allow_external_libypspur_command;
+    pnh_.param("allow_external_libypspur_command", allow_external_libypspur_command, false);
 
     double cmd_vel_expire_s;
     pnh_.param("cmd_vel_expire", cmd_vel_expire_s, -1.0);
@@ -1059,6 +1064,8 @@ public:
       args.push_back(std::string("--without-device"));
     if (exit_on_time_jump)
       args.push_back(std::string("--exit-on-time-jump"));
+    if (!allow_external_libypspur_command)
+      args.push_back(std::string("--no-ipc"));
     if (param_file_.size() > 0)
     {
       args.push_back(std::string("-p"));
