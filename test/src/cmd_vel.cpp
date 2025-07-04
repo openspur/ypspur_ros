@@ -59,6 +59,7 @@ TEST(CmdVel, Control)
   }
   ASSERT_TRUE(static_cast<bool>(odom));
 
+  ASSERT_NEAR(odom->header.stamp, ros::Time::now(), ros::Duration(1e-3))
   ASSERT_NEAR(odom->twist.twist.linear.x, 0.0, 1e-6);
   ASSERT_NEAR(odom->twist.twist.angular.z, 0.0, 1e-6);
   ASSERT_NEAR(odom->pose.pose.position.x, 0.0, 1e-6);
