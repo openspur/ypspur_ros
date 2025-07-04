@@ -109,6 +109,7 @@ private:
   std::shared_ptr<std::thread> thread_coordinator_;
   std::atomic_bool coordinator_exited_;
   std::atomic_int coordinator_exit_code_;
+  std::atomic_bool publish_odometry_next_;
 
   enum OdometryMode
   {
@@ -476,6 +477,12 @@ private:
         }
       }
       device_error_state_time_ = ros::Time(latest_err_time);
+    }
+
+    const bool publish_now = publish_odometry_next_.exchange(false);
+    if (!publish_now)
+    {
+      return;
     }
 
     const ros::Time current_stamp(odom->time);
@@ -1189,6 +1196,7 @@ public:
         }
       }
 
+      publish_odometry_next_ = true;
       feedbackLocalization();
       controlJoints(now);
       updateDIO(now);
