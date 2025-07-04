@@ -838,6 +838,10 @@ public:
     pnh_.param("cmd_vel_expire", cmd_vel_expire_s, -1.0);
     cmd_vel_expire_ = ros::Duration(cmd_vel_expire_s);
 
+    bool cmd_tcp_nodelay;
+    pnh_.param("cmd_tcp_nodelay", cmd_tcp_nodelay, true);
+    const auto cmd_transport_hints = ros::TransportHints().tcpNoDelay(cmd_tcp_nodelay);
+
     std::string ad_mask("");
     ads_.resize(ad_num_);
     for (int i = 0; i < ad_num_; i++)
@@ -882,7 +886,8 @@ public:
           subs_[param.name_] = compat::subscribe<ypspur_ros::DigitalOutput>(
               nh_, param.name_,
               pnh_, param.name_, 1,
-              boost::bind(&YpspurRosNode::cbDigitalOutput, this, _1, i));
+              boost::bind(&YpspurRosNode::cbDigitalOutput, this, _1, i),
+              ros::VoidPtr(), cmd_transport_hints);
         }
         else if (digital_input_discrete_ && param.input_)
         {
@@ -944,7 +949,7 @@ public:
           pnh_, "odom", 1);
       subs_["cmd_vel"] = compat::subscribe(
           nh_, "cmd_vel",
-          pnh_, "cmd_vel", 1, &YpspurRosNode::cbCmdVel, this);
+          pnh_, "cmd_vel", 1, &YpspurRosNode::cbCmdVel, this, cmd_transport_hints);
 
       pnh_.param("publish_odom_tf", publish_odom_tf_, true);
     }
@@ -991,15 +996,16 @@ public:
             subs_[jp.name_ + std::string("_vel")] = compat::subscribe<std_msgs::Float32>(
                 nh_, jp.name_ + std::string("/vel"),
                 pnh_, jp.name_ + std::string("_vel"), 1,
-                boost::bind(&YpspurRosNode::cbVel, this, _1, num));
+                boost::bind(&YpspurRosNode::cbVel, this, _1, num), ros::VoidPtr(), cmd_transport_hints);
             subs_[jp.name_ + std::string("_pos")] = compat::subscribe<std_msgs::Float32>(
                 nh_, jp.name_ + std::string("/pos"),
                 pnh_, jp.name_ + std::string("_pos"), 1,
-                boost::bind(&YpspurRosNode::cbAngle, this, _1, num));
+                boost::bind(&YpspurRosNode::cbAngle, this, _1, num), ros::VoidPtr(), cmd_transport_hints);
           }
           subs_[std::string("joint_position")] = compat::subscribe(
               nh_, std::string("joint_position"),
-              pnh_, std::string("joint_position"), 1, &YpspurRosNode::cbJointPosition, this);
+              pnh_, std::string("joint_position"), 1, &YpspurRosNode::cbJointPosition, this,
+              cmd_transport_hints);
           num++;
         }
       }
@@ -1011,7 +1017,8 @@ public:
           pnh_, "joint", 2);
       subs_["joint"] = compat::subscribe(
           nh_, "joint_trajectory",
-          pnh_, "cmd_joint", joints_.size() * 2, &YpspurRosNode::cbJoint, this);
+          pnh_, "cmd_joint", joints_.size() * 2, &YpspurRosNode::cbJoint, this,
+          cmd_transport_hints);
     }
     subs_["control_mode"] = compat::subscribe(
         nh_, "control_mode",
