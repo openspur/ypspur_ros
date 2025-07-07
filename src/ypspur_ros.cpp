@@ -486,6 +486,7 @@ private:
     }
     previous_odom_stamp_ = current_stamp;
 
+    std::vector<geometry_msgs::TransformStamped> transforms;
     if (mode_ == DIFF)
     {
       odom_.header.stamp = current_stamp;
@@ -505,7 +506,7 @@ private:
         odom_trans_.transform.translation.y = odom_.pose.pose.position.y;
         odom_trans_.transform.translation.z = 0;
         odom_trans_.transform.rotation = odom_.pose.pose.orientation;
-        tf_broadcaster_.sendTransform(odom_trans_);
+        transforms.push_back(odom_trans_);
       }
 
       wrench_.header.stamp = current_stamp;
@@ -533,8 +534,12 @@ private:
       {
         joint_trans_[i].transform.rotation = tf2::toMsg(tf2::Quaternion(z_axis_, joint_.position[i]));
         joint_trans_[i].header.stamp = current_stamp + ros::Duration(tf_time_offset_);
-        tf_broadcaster_.sendTransform(joint_trans_[i]);
+        transforms.push_back(joint_trans_[i]);
       }
+    }
+    if (transforms.size() > 0)
+    {
+      tf_broadcaster_.sendTransform(transforms);
     }
     for (int i = 0; i < ad_num_; i++)
     {
