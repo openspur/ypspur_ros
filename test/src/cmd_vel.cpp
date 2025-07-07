@@ -27,6 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <atomic>
+
 #include <ros/ros.h>
 
 #include <geometry_msgs/Twist.h>
@@ -113,10 +115,41 @@ TEST(CmdVel, Control)
   ASSERT_NEAR(tf2::getYaw(odom->pose.pose.orientation), 0.5, 1e-2);
 }
 
+TEST(CmdVel, Latency)
+{
+  std::atomic_int count(0);
+  const boost::function<void(const nav_msgs::Odometry::ConstPtr&)> cb_odom =
+      [&count](const nav_msgs::Odometry::ConstPtr& msg) -> void
+  {
+    const ros::Duration latency = ros::Time::now() - msg->header.stamp;
+    if (++count > 5)
+    {
+      EXPECT_NEAR(latency.toSec(), 0, 1e-3);
+    }
+  };
+  ros::NodeHandle nh;
+  ros::Subscriber sub_odom = nh.subscribe(
+      "odom", 1, cb_odom, ros::VoidPtr(),
+      ros::TransportHints().tcpNoDelay(true));
+
+  ros::AsyncSpinner spinner(1);
+  spinner.start();
+  for (int i = 0; i < 20; ++i)
+  {
+    ros::Duration(0.1).sleep();
+    if (count.load() > 10)
+    {
+      break;
+    }
+  }
+  spinner.stop();
+  ASSERT_GT(count.load(), 10);
+}
+
 int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
-  ros::init(argc, argv, "test_joint_trajectory");
+  ros::init(argc, argv, "test_cmd_vel");
 
   return RUN_ALL_TESTS();
 }

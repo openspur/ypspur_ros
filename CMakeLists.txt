@@ -59,10 +59,14 @@ include_directories(
   ${ypspur_INCLUDE_DIRS}
 )
 
-add_executable(ypspur_ros src/ypspur_ros.cpp)
+add_executable(ypspur_ros
+  src/ypspur_ros.cpp
+  src/direct_ypspur.cpp
+)
 target_link_libraries(ypspur_ros
   ${catkin_LIBRARIES}
   ypspur
+  libypspur-coordinator
 )
 add_dependencies(ypspur_ros ${ypspur_ros_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -94,6 +98,7 @@ install(TARGETS
 if(CATKIN_ENABLE_TESTING)
   add_subdirectory(test)
   find_package(roslint REQUIRED)
+  set(ROSLINT_CPP_OPTS "--filter=-runtime/references,-build/c++11")
   roslint_cpp()
   roslint_add_test()
 endif()
