@@ -455,25 +455,19 @@ private:
       {
         for (int i = 0; i < 2; i++)
         {
-          if (err->state[i] != 0)
+          device_error_state_ |= err->state[i];
+          if (latest_err_time < err->time[i])
           {
-            device_error_state_ |= err->state[i];
-            if (latest_err_time < err->time[i])
-            {
-              latest_err_time = err->time[i];
-            }
+            latest_err_time = err->time[i];
           }
         }
       }
       for (const JointParams& j : joints_)
       {
-        if (err->state[j.id_] != 0)
+        device_error_state_ |= err->state[j.id_];
+        if (latest_err_time < err->time[j.id_])
         {
-          device_error_state_ |= err->state[j.id_];
-          if (latest_err_time < err->time[j.id_])
-          {
-            latest_err_time = err->time[j.id_];
-          }
+          latest_err_time = err->time[j.id_];
         }
       }
       device_error_state_time_ = ros::Time(latest_err_time);
