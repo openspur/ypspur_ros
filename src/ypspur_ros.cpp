@@ -446,6 +446,7 @@ private:
 
   void cbOdometryUpdate(const YP::OdometryPtr odom, const YP::ErrorStatePtr err)
   {
+    // Called from libypspur-coordinator main thread
     std::lock_guard<std::mutex> guard(mutex_odom_);
 
     {
@@ -473,6 +474,7 @@ private:
       device_error_state_time_ = ros::Time(latest_err_time);
     }
 
+    // Limit publishing rate by hz parameter
     const bool publish_now = publish_odometry_next_.exchange(false);
     if (!publish_now)
     {
