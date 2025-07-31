@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.7.0 (2025-07-31)
+------------------
 * Get odometry data by hook (`#135 <https://github.com/openspur/ypspur_ros/issues/135>`_)
 * Set tcpNoDelay option to command input topics (`#138 <https://github.com/openspur/ypspur_ros/issues/138>`_)
 * Add test for vehicle control (`#137 <https://github.com/openspur/ypspur_ros/issues/137>`_)
