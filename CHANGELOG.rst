@@ -2,6 +2,16 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.7.0 (2025-07-31)
+------------------
+* Get odometry data by hook (`#135 <https://github.com/openspur/ypspur_ros/issues/135>`_)
+* Set tcpNoDelay option to command input topics (`#138 <https://github.com/openspur/ypspur_ros/issues/138>`_)
+* Add test for vehicle control (`#137 <https://github.com/openspur/ypspur_ros/issues/137>`_)
+* Refactor ypspur_ros to split function (`#136 <https://github.com/openspur/ypspur_ros/issues/136>`_)
+* Fix .rosinstall filename for Alpine ROS CI (`#134 <https://github.com/openspur/ypspur_ros/issues/134>`_)
+* Migrate to Alpine ROS 1 (`#132 <https://github.com/openspur/ypspur_ros/issues/132>`_)
+* Contributors: Atsushi Watanabe
+
 0.6.0 (2024-04-17)
 ------------------
 * Add option to publish digital input data separately (`#128 <https://github.com/openspur/ypspur_ros/issues/128>`_)
