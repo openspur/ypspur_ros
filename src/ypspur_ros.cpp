@@ -109,7 +109,7 @@ private:
   std::shared_ptr<std::thread> thread_coordinator_;
   std::atomic_bool coordinator_exited_;
   std::atomic_int coordinator_exit_code_;
-  std::atomic_bool publish_odometry_next_;
+  std::atomic_bool publish_odometry_next_{true};
 
   enum OdometryMode
   {
