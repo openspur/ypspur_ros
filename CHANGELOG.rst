@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.7.1 (2026-06-24)
+------------------
 * Add codecov.yml (`#144 <https://github.com/openspur/ypspur_ros/issues/144>`_)
 * Initialize publish_odometry_next\_ to fix odometry init timeout (`#142 <https://github.com/openspur/ypspur_ros/issues/142>`_)
 * Update required cmake version (`#141 <https://github.com/openspur/ypspur_ros/issues/141>`_)
