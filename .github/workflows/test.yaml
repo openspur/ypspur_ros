@@ -14,7 +14,13 @@ permissions:
 jobs:
   test:
     uses: alpine-ros/alpine-ros-ci-workflows/.github/workflows/ros1.yaml@main
+    strategy:
+      matrix:
+        alpine-version:
+          - "3.20"
+          - "3.23"
     with:
+      alpine-version: ${{ matrix.alpine-version }}
       enable-bot-comment: true
       bot-comment-api-base: "https://ghbot-api.at-wat.tokyo"
       enable-codecov: true
