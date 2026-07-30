@@ -61,6 +61,7 @@
 #include <boost/thread/future.hpp>
 
 #include <atomic>
+#include <cmath>
 #include <exception>
 #include <map>
 #include <memory>
