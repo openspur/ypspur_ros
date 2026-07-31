@@ -140,7 +140,6 @@ private:
     };
     control_mode_ control_;
     trajectory_msgs::JointTrajectory cmd_joint_;
-    bool index_check_enable_;
     ypspur_ros::JointIndexMonitor index_monitor_;
   };
   std::vector<JointParams> joints_;
@@ -400,7 +399,7 @@ private:
     std::string joint_index_error;
     for (const JointParams& j : joints_)
     {
-      if (j.index_check_enable_ && j.index_monitor_.hasError())
+      if (j.index_monitor_.hasError())
       {
         joint_index_error += (joint_index_error.empty() ? "" : ",") + j.name_;
       }
@@ -501,10 +500,7 @@ private:
 
     for (JointParams& j : joints_)
     {
-      if (j.index_check_enable_)
-      {
-        j.index_monitor_.update(odom->wang[j.id_], odom->wang_time[j.id_]);
-      }
+      j.index_monitor_.update(odom->wang[j.id_], odom->wang_time[j.id_]);
     }
 
     // Limit publishing rate by hz parameter
@@ -1014,8 +1010,9 @@ public:
           jp.id_ = i;
           pnh_.param(name + std::string("_name"), jp.name_, name);
           pnh_.param(name + std::string("_accel"), jp.accel_, 3.14);
-          pnh_.param(name + std::string("_index_check_enable"), jp.index_check_enable_, false);
-          if (jp.index_check_enable_)
+          bool index_check_enable;
+          pnh_.param(name + std::string("_index_check_enable"), index_check_enable, false);
+          if (index_check_enable)
           {
             double travel;
             pnh_.param(

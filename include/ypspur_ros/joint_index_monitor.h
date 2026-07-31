@@ -31,6 +31,7 @@
 #define YPSPUR_ROS_JOINT_INDEX_MONITOR_H
 
 #include <cmath>
+#include <limits>
 
 namespace ypspur_ros
 {
@@ -39,7 +40,8 @@ namespace ypspur_ros
 class JointIndexMonitor
 {
 public:
-  explicit JointIndexMonitor(const double travel_threshold = 0)
+  explicit JointIndexMonitor(
+      const double travel_threshold = std::numeric_limits<double>::infinity())
     : travel_threshold_(travel_threshold)
     , initialized_(false)
     , error_(false)

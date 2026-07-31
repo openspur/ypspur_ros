@@ -36,6 +36,18 @@ namespace
 constexpr double kThreshold = 6.4;
 }  // namespace
 
+TEST(JointIndexMonitor, NeverErrorWhenDefaultConstructed)
+{
+  ypspur_ros::JointIndexMonitor monitor;
+  double wang = 0;
+  for (int i = 0; i < 1000; ++i)
+  {
+    wang += 1.0;
+    monitor.update(wang, 0);
+    ASSERT_FALSE(monitor.hasError()) << "wang: " << wang;
+  }
+}
+
 TEST(JointIndexMonitor, NoErrorWhileStopped)
 {
   ypspur_ros::JointIndexMonitor monitor(kThreshold);
