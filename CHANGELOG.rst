@@ -2,6 +2,11 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add diagnostics error on joint index signal loss (`#147 <https://github.com/openspur/ypspur_ros/issues/147>`_)
+* Contributors: nabeya11
+
 0.7.1 (2026-06-24)
 ------------------
 * Add codecov.yml (`#144 <https://github.com/openspur/ypspur_ros/issues/144>`_)
