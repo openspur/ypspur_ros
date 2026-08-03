@@ -109,6 +109,18 @@ Frequency to publish odometry data.
 
 ### ~/joint?_name [string: "joint" + i]
 
+### ~/joint?_index_check_enable [bool: false]
+
+Enable monitoring of the joint index signal.
+The diagnostic status is set to ERROR if the index signal is not detected
+while the joint travels more than `~/joint?_index_check_travel`.
+
+### ~/joint?_index_check_travel [float: 2π × 1.2]
+
+Joint travel [rad] allowed without detecting the index signal.
+The default assumes one index signal per revolution with 20% margin.
+Set explicitly if `INDEX_GEAR` is not 1.0.
+
 ### ~/vel [float: max velocity specified in the parameter file]
 
 ### ~/acc [float: max acceleration specified in the parameter file]

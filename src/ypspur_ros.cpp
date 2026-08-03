@@ -61,6 +61,7 @@
 #include <boost/thread/future.hpp>
 
 #include <atomic>
+#include <cmath>
 #include <exception>
 #include <map>
 #include <memory>
@@ -71,6 +72,7 @@
 
 #include <compatibility.h>
 #include <ypspur_ros/direct_ypspur.h>
+#include <ypspur_ros/joint_index_monitor.h>
 
 namespace YP
 {
@@ -82,6 +84,8 @@ void sigintHandler(int sig)
 {
   g_shutdown = true;
 }
+
+constexpr double DEFAULT_INDEX_CHECK_TRAVEL_MARGIN = 1.2;
 
 class YpspurRosNode
 {
@@ -136,6 +140,7 @@ private:
     };
     control_mode_ control_;
     trajectory_msgs::JointTrajectory cmd_joint_;
+    ypspur_ros::JointIndexMonitor index_monitor_;
   };
   std::vector<JointParams> joints_;
   std::map<std::string, int> joint_name_to_num_;
@@ -172,6 +177,7 @@ private:
   int device_error_state_prev_;
   ros::Time device_error_state_time_;
   ros::Time last_diag_update_time_;
+  std::string joint_index_error_prev_;
 
   geometry_msgs::Twist::ConstPtr cmd_vel_;
   ros::Time cmd_vel_time_;
@@ -390,17 +396,28 @@ private:
     const int connection_error =
         coordinator_exited_.load() ? coordinator_exit_code_.load() : 0;
 
+    std::string joint_index_error;
+    for (const JointParams& j : joints_)
+    {
+      if (j.index_monitor_.hasError())
+      {
+        joint_index_error += (joint_index_error.empty() ? "" : ",") + j.name_;
+      }
+    }
+
     if (last_diag_update_time_ + ros::Duration(1.0) < now || connection_down ||
-        device_error_state_ != device_error_state_prev_)
+        device_error_state_ != device_error_state_prev_ ||
+        joint_index_error != joint_index_error_prev_)
     {
       device_error_state_prev_ = device_error_state_;
+      joint_index_error_prev_ = joint_index_error;
 
       diagnostic_msgs::DiagnosticArray msg;
       msg.header.stamp = now;
       msg.status.resize(1);
       msg.status[0].name = "YP-Spur Motor Controller";
       msg.status[0].hardware_id = "ipc-key" + std::to_string(key_);
-      if (device_error_state_ == 0 && connection_error == 0)
+      if (device_error_state_ == 0 && connection_error == 0 && joint_index_error.empty())
       {
         if (device_error_state_time_.isZero())
         {
@@ -431,12 +448,19 @@ private:
               std::string((msg.status[0].message.size() > 0 ? " " : "")) +
               "Motor controller reported error id " +
               std::to_string(device_error_state_) + ".";
+        if (!joint_index_error.empty())
+          msg.status[0].message +=
+              std::string((msg.status[0].message.size() > 0 ? " " : "")) +
+              "Joint index signal is not detected within expected rotation: " +
+              joint_index_error + ".";
       }
-      msg.status[0].values.resize(2);
+      msg.status[0].values.resize(3);
       msg.status[0].values[0].key = "connection_error";
       msg.status[0].values[0].value = std::to_string(connection_error);
       msg.status[0].values[1].key = "device_error";
       msg.status[0].values[1].value = std::to_string(device_error_state_);
+      msg.status[0].values[2].key = "joint_index_signal_error";
+      msg.status[0].values[2].value = joint_index_error;
 
       pubs_["diag"].publish(msg);
       last_diag_update_time_ = now;
@@ -472,6 +496,11 @@ private:
         }
       }
       device_error_state_time_ = ros::Time(latest_err_time);
+    }
+
+    for (JointParams& j : joints_)
+    {
+      j.index_monitor_.update(odom->wang[j.id_], odom->wang_time[j.id_]);
     }
 
     // Limit publishing rate by hz parameter
@@ -981,6 +1010,16 @@ public:
           jp.id_ = i;
           pnh_.param(name + std::string("_name"), jp.name_, name);
           pnh_.param(name + std::string("_accel"), jp.accel_, 3.14);
+          bool index_check_enable;
+          pnh_.param(name + std::string("_index_check_enable"), index_check_enable, false);
+          if (index_check_enable)
+          {
+            double travel;
+            pnh_.param(
+                name + std::string("_index_check_travel"), travel,
+                2.0 * M_PI * DEFAULT_INDEX_CHECK_TRAVEL_MARGIN);
+            jp.index_monitor_ = ypspur_ros::JointIndexMonitor(travel);
+          }
           joint_name_to_num_[jp.name_] = num;
           joints_.push_back(jp);
           // printf("%s %d %d", jp.name_.c_str(), jp.id_, joint_name_to_num_[jp.name_]);
