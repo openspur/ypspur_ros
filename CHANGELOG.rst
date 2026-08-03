@@ -2,8 +2,8 @@
 Changelog for package ypspur_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.8.0 (2026-08-03)
+------------------
 * Add diagnostics error on joint index signal loss (`#147 <https://github.com/openspur/ypspur_ros/issues/147>`_)
 * Contributors: nabeya11
 
